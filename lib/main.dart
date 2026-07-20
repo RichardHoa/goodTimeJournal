@@ -22,7 +22,7 @@ class GoodTimeJournalApp extends StatelessWidget {
     final journalProvider = Provider.of<JournalProvider>(context);
 
     return MaterialApp(
-      title: 'Good Time Journal',
+      title: 'goodTimeJournal',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

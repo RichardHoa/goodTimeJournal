@@ -4,6 +4,7 @@ class JournalEntry {
   final double engagement;
   final double goodness;
   final DateTime timestamp;
+  final bool isFlow;
 
   JournalEntry({
     required this.id,
@@ -11,6 +12,7 @@ class JournalEntry {
     required this.engagement,
     required this.goodness,
     required this.timestamp,
+    this.isFlow = false,
   });
 
   // Unique day key for grouping (e.g., 2026-07-19)
@@ -25,6 +27,7 @@ class JournalEntry {
       'engagement': engagement,
       'goodness': goodness,
       'timestamp': timestamp.toIso8601String(),
+      'isFlow': isFlow,
     };
   }
 
@@ -35,6 +38,25 @@ class JournalEntry {
       engagement: (json['engagement'] as num).toDouble(),
       goodness: (json['goodness'] as num).toDouble(),
       timestamp: DateTime.parse(json['timestamp'] as String),
+      isFlow: (json['isFlow'] as bool?) ?? false,
+    );
+  }
+
+  JournalEntry copyWith({
+    String? id,
+    String? activity,
+    double? engagement,
+    double? goodness,
+    DateTime? timestamp,
+    bool? isFlow,
+  }) {
+    return JournalEntry(
+      id: id ?? this.id,
+      activity: activity ?? this.activity,
+      engagement: engagement ?? this.engagement,
+      goodness: goodness ?? this.goodness,
+      timestamp: timestamp ?? this.timestamp,
+      isFlow: isFlow ?? this.isFlow,
     );
   }
 }

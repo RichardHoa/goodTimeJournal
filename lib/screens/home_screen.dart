@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/journal_provider.dart';
+import '../models/entry_model.dart';
+import '../theme/app_theme.dart';
 import 'add_entry_screen.dart';
 import 'all_entries_screen.dart';
 
@@ -10,168 +12,213 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final journalProvider = Provider.of<JournalProvider>(context);
-    final isDark = journalProvider.isDarkMode;
-
     return Scaffold(
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withAlpha(38),
-                shape: BoxShape.circle,
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                Icons.auto_awesome_rounded,
+                Icons.menu_book_rounded,
                 color: Theme.of(context).colorScheme.primary,
-                size: 22,
+                size: 20,
               ),
             ),
             const SizedBox(width: 10),
             const Text(
-              'Good Time Journal',
-              style: TextStyle(fontWeight: FontWeight.w800),
+              'goodTimeJournal',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
             ),
           ],
         ),
         actions: [
-          IconButton(
-            tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-            icon: Icon(
-              isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round,
-              color: isDark ? Colors.amber : Theme.of(context).colorScheme.primary,
-            ),
-            onPressed: () {
-              journalProvider.toggleThemeMode();
+          Selector<JournalProvider, bool>(
+            selector: (_, provider) => provider.isDarkMode,
+            builder: (context, isDark, _) {
+              return IconButton(
+                tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+                icon: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: isDark ? const Color(0xFFFBBF24) : Theme.of(context).colorScheme.primary,
+                  size: 22,
+                ),
+                onPressed: () {
+                  context.read<JournalProvider>().toggleThemeMode();
+                },
+              );
             },
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: journalProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Hero Header
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isDark
-                            ? [const Color(0xFF312E81), const Color(0xFF1E1B4B)]
-                            : [const Color(0xFF4F46E5), const Color(0xFF6366F1)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Theme.of(context).colorScheme.primary.withAlpha(75),
-                          blurRadius: 16,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Design Your Life 🌿',
-                          style: TextStyle(
-                            color: Colors.white.withAlpha(216),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Track Your Daily Energy & Goodness',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Identify high-engagement activities and find your flow state every single day.',
-                          style: TextStyle(
-                            color: Colors.white.withAlpha(230),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
+      body: Selector<JournalProvider, bool>(
+        selector: (_, provider) => provider.isLoading,
+        builder: (context, isLoading, _) {
+          if (isLoading) {
+            return const Center(child: CircularProgressIndicator.adaptive());
+          }
+
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: const [
+                _HeroHeaderBanner(),
+                SizedBox(height: 24),
+                _ActionButtonsGroup(),
+                SizedBox(height: 28),
+                _RecentActivitiesSection(),
+                SizedBox(height: 24),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Minimalist Hero Header Banner with clean Iris aesthetic
+class _HeroHeaderBanner extends StatelessWidget {
+  const _HeroHeaderBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : AppTheme.lightPrimaryContainer,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark
+              ? AppTheme.darkBorder
+              : AppTheme.lightPrimary.withValues(alpha: 0.15),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppTheme.darkPrimary.withValues(alpha: 0.15)
+                      : AppTheme.lightPrimary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Design Your Life 🌿',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Track Your Daily Energy & Engagement',
+            style: TextStyle(
+              fontSize: 21,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+              height: 1.25,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Discover activities that energize you and optimize your routines.',
+            style: TextStyle(
+              fontSize: 13.5,
+              height: 1.4,
+              color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-                  const SizedBox(height: 24),
+/// Minimalist elevated and outlined buttons group
+class _ActionButtonsGroup extends StatelessWidget {
+  const _ActionButtonsGroup();
 
-                  // Quick Stats Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          context,
-                          title: 'Total Entries',
-                          value: '${journalProvider.totalEntries}',
-                          icon: Icons.bookmark_added_rounded,
-                          color: Colors.indigo,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildStatCard(
-                          context,
-                          title: 'Avg Engagement',
-                          value: journalProvider.averageEngagement.toStringAsFixed(1),
-                          icon: Icons.bolt_rounded,
-                          color: Colors.amber.shade700,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildStatCard(
-                          context,
-                          title: 'Avg Goodness',
-                          value: journalProvider.averageGoodness.toStringAsFixed(1),
-                          icon: Icons.favorite_rounded,
-                          color: const Color(0xFF10B981),
-                        ),
-                      ),
-                    ],
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ElevatedButton.icon(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AddEntryScreen(),
+              ),
+            );
+          },
+          icon: const Icon(Icons.add_rounded, size: 22),
+          label: const Text('Add Journal Entry'),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AllEntriesScreen(),
+              ),
+            );
+          },
+          icon: const Icon(Icons.history_rounded, size: 20),
+          label: const Text('View All Entries'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Recent activities feed section
+class _RecentActivitiesSection extends StatelessWidget {
+  const _RecentActivitiesSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Selector<JournalProvider, List<JournalEntry>>(
+      selector: (_, provider) => provider.recentEntries,
+      builder: (context, entries, _) {
+        return Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Recent Activities',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
                   ),
-
-                  const SizedBox(height: 28),
-
-                  // Primary Action Buttons
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AddEntryScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.add_circle_outline_rounded, size: 24),
-                    label: const Text('Add Entry'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      elevation: 4,
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  OutlinedButton.icon(
+                ),
+                if (entries.isNotEmpty)
+                  TextButton(
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -180,245 +227,223 @@ class HomeScreen extends StatelessWidget {
                         ),
                       );
                     },
-                    icon: const Icon(Icons.list_alt_rounded, size: 22),
-                    label: const Text('View All Entries'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: BorderSide(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48), // Touch target
+                    ),
+                    child: Text(
+                      'See All',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                         color: Theme.of(context).colorScheme.primary,
-                        width: 2,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 32),
-
-                  // Recent Entries Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Recent Logged Activities',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (journalProvider.entries.isNotEmpty)
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const AllEntriesScreen(),
-                              ),
-                            );
-                          },
-                          child: const Text('See All'),
-                        ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  if (journalProvider.entries.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardTheme.color,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isDark ? Colors.white10 : Colors.black12,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.article_outlined,
-                            size: 48,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'No journal entries yet',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Click "Add Entry" above to log your first activity!',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: journalProvider.entries.take(3).length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final entry = journalProvider.entries[index];
-                        final timeStr = DateFormat('hh:mm a').format(entry.timestamp);
-                        final dateStr = DateFormat('MMM dd, yyyy').format(entry.timestamp);
-
-                        return Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).cardTheme.color,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withAlpha(isDark ? 50 : 10),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primary
-                                      .withAlpha(30),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Icon(
-                                  Icons.edit_note_rounded,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      entry.activity,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '$dateStr • $timeStr',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? Colors.grey.shade400
-                                            : Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  _buildBadge(
-                                    label: 'Eng: ${entry.engagement.toStringAsFixed(1)}',
-                                    color: Colors.amber.shade700,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  _buildBadge(
-                                    label: 'Good: ${entry.goodness.toStringAsFixed(1)}',
-                                    color: const Color(0xFF10B981),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                ],
-              ),
+              ],
             ),
+            const SizedBox(height: 12),
+            if (entries.isEmpty)
+              const _EmptyStateWidget()
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: entries.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  return _ActivityFeedTile(entry: entries[index]);
+                },
+              ),
+          ],
+        );
+      },
     );
   }
+}
 
-  Widget _buildStatCard(
-    BuildContext context, {
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
+class _EmptyStateWidget extends StatelessWidget {
+  const _EmptyStateWidget();
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(isDark ? 50 : 10),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
+          width: 1,
+        ),
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 6),
-          Text(
-            value,
+          Icon(
+            Icons.edit_calendar_rounded,
+            size: 42,
+            color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'No journal entries recorded yet',
             style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: color,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
-            title,
+            'Tap "Add Journal Entry" above to record your first activity.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              fontSize: 13,
+              color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildBadge({required String label, required Color color}) {
+class _ActivityFeedTile extends StatelessWidget {
+  final JournalEntry entry;
+
+  const _ActivityFeedTile({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final timeStr = DateFormat('hh:mm a').format(entry.timestamp);
+    final dateStr = DateFormat('MMM dd').format(entry.timestamp);
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddEntryScreen(entryToEdit: entry),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardTheme.color,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppTheme.darkPrimaryContainer
+                    : AppTheme.lightPrimaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.edit_note_rounded,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.activity,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        '$dateStr • $timeStr',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                        ),
+                      ),
+                      if (entry.isFlow) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            '⚡ Flow',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF8B5CF6),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _Badge(
+                  label: 'Eng: ${entry.engagement.toInt()}',
+                  color: isDark ? AppTheme.darkEngagement : AppTheme.lightEngagement,
+                ),
+                const SizedBox(height: 4),
+                _Badge(
+                  label: 'Good: ${entry.goodness.toInt()}',
+                  color: isDark ? AppTheme.darkGoodness : AppTheme.lightGoodness,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _Badge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withAlpha(38),
-        borderRadius: BorderRadius.circular(8),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w700,
           color: color,
         ),
       ),

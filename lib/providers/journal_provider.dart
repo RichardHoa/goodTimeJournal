@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/entry_model.dart';
 import '../services/storage_service.dart';
+import '../services/csv_service.dart';
 
 class JournalProvider extends ChangeNotifier {
   final StorageService _storageService = StorageService();
@@ -10,6 +11,7 @@ class JournalProvider extends ChangeNotifier {
   bool _isLoading = true;
 
   List<JournalEntry> get entries => List.unmodifiable(_entries);
+  List<JournalEntry> get recentEntries => List.unmodifiable(_entries.take(5));
   bool get isDarkMode => _isDarkMode;
   bool get isLoading => _isLoading;
 
@@ -43,25 +45,61 @@ class JournalProvider extends ChangeNotifier {
     required String activity,
     required double engagement,
     required double goodness,
+    bool isFlow = false,
+    DateTime? timestamp,
   }) async {
     final newEntry = JournalEntry(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       activity: activity,
       engagement: engagement,
       goodness: goodness,
-      timestamp: DateTime.now(),
+      timestamp: timestamp ?? DateTime.now(),
+      isFlow: isFlow,
     );
 
     _entries.insert(0, newEntry);
+    _entries.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     notifyListeners();
 
     await _storageService.saveEntries(_entries);
+  }
+
+  Future<void> updateEntry(JournalEntry updatedEntry) async {
+    final index = _entries.indexWhere((e) => e.id == updatedEntry.id);
+    if (index != -1) {
+      _entries[index] = updatedEntry;
+      _entries.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      notifyListeners();
+      await _storageService.saveEntries(_entries);
+    }
   }
 
   Future<void> deleteEntry(String id) async {
     _entries.removeWhere((e) => e.id == id);
     notifyListeners();
     await _storageService.saveEntries(_entries);
+  }
+
+  String exportCsv() {
+    return CsvService.exportToCsv(_entries);
+  }
+
+  Future<String?> exportAndSaveCsvToDownloads() async {
+    final csvContent = exportCsv();
+    final savedFile = await CsvService.saveCsvToDownloads(csvContent);
+    return savedFile?.path;
+  }
+
+  Future<int> importCsv(String csvData) async {
+    final imported = CsvService.importFromCsv(csvData);
+    if (imported.isEmpty) return 0;
+
+    _entries.addAll(imported);
+    _entries.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    notifyListeners();
+
+    await _storageService.saveEntries(_entries);
+    return imported.length;
   }
 
   /// Groups entries by dateKey ("YYYY-MM-DD") sorted descending

@@ -1,5 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../theme/app_theme.dart';
 
 enum GaugeType { engagement, goodness }
 
@@ -21,63 +23,53 @@ class GaugeChartWidget extends StatelessWidget {
     this.size = 200,
   });
 
-  Color _getPrimaryColor(BuildContext context) {
+  Color _getPrimaryColor(bool isDark) {
     if (type == GaugeType.engagement) {
-      return const Color(0xFF6366F1); // Indigo
+      return isDark ? AppTheme.darkEngagement : AppTheme.lightEngagement;
     } else {
-      return const Color(0xFF10B981); // Emerald
+      return isDark ? AppTheme.darkGoodness : AppTheme.lightGoodness;
     }
   }
 
-  List<Color> _getGradientColors() {
+  List<Color> _getGradientColors(bool isDark) {
     if (type == GaugeType.engagement) {
-      return [
-        const Color(0xFF818CF8),
-        const Color(0xFF6366F1),
-        const Color(0xFFF59E0B),
-      ];
+      return isDark
+          ? [const Color(0xFFC084FC), const Color(0xFFA78BFA), const Color(0xFF8B5CF6)]
+          : [const Color(0xFF9E86FF), const Color(0xFF6E56CF), const Color(0xFF5B46E0)];
     } else {
-      return [
-        const Color(0xFF34D399),
-        const Color(0xFF10B981),
-        const Color(0xFF059669),
-      ];
+      return isDark
+          ? [const Color(0xFF6EE7B7), const Color(0xFF34D399), const Color(0xFF10B981)]
+          : [const Color(0xFF34D399), const Color(0xFF10B981), const Color(0xFF059669)];
     }
-  }
-
-  String get _levelLabel {
-    if (value <= 2.5) return 'Low';
-    if (value <= 5.0) return 'Moderate';
-    if (value <= 7.5) return 'High';
-    return 'Flow State!';
   }
 
   IconData get _icon {
-    if (type == GaugeType.engagement) {
-      return Icons.bolt_rounded;
-    } else {
-      return Icons.favorite_rounded;
+    return type == GaugeType.engagement ? Icons.bolt_rounded : Icons.favorite_rounded;
+  }
+
+  void _handleValueChange(double rawVal) {
+    final double snappedVal = rawVal.roundToDouble().clamp(0.0, 10.0);
+    if (snappedVal != value) {
+      HapticFeedback.selectionClick();
+      onChanged?.call(snappedVal);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = _getPrimaryColor(context);
+    final primaryColor = _getPrimaryColor(isDark);
 
     return Container(
-      padding: EdgeInsets.all(isInteractive ? 16 : 8),
+      padding: EdgeInsets.all(isInteractive ? 18 : 10),
       decoration: isInteractive
           ? BoxDecoration(
               color: Theme.of(context).cardTheme.color,
               borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(isDark ? 80 : 15),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              border: Border.all(
+                color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
+                width: 1,
+              ),
             )
           : null,
       child: Column(
@@ -86,19 +78,21 @@ class GaugeChartWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(_icon, color: primaryColor, size: isInteractive ? 22 : 16),
+              Icon(_icon, color: primaryColor, size: isInteractive ? 18 : 14),
               const SizedBox(width: 6),
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: isInteractive ? 16 : 13,
-                  fontWeight: FontWeight.bold,
+                  fontSize: isInteractive ? 14 : 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onPanUpdate: isInteractive
                 ? (details) {
                     final RenderBox box = context.findRenderObject() as RenderBox;
@@ -108,58 +102,34 @@ class GaugeChartWidget extends StatelessWidget {
                     double norm = (angle + pi) / pi;
                     if (norm < 0) norm = 0;
                     if (norm > 1) norm = 1;
-                    double newValue = (norm * 10).clamp(0.0, 10.0);
-                    onChanged?.call((newValue * 10).round() / 10.0);
+                    double rawValue = norm * 10;
+                    _handleValueChange(rawValue);
                   }
                 : null,
             child: SizedBox(
               width: size,
-              height: size * 0.65,
+              height: size * 0.55,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   CustomPaint(
-                    size: Size(size, size * 0.65),
+                    size: Size(size, size * 0.55),
                     painter: _GaugePainter(
                       value: value,
-                      colors: _getGradientColors(),
+                      colors: _getGradientColors(isDark),
                       isDark: isDark,
                     ),
                   ),
                   Positioned(
-                    bottom: 0,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          value.toStringAsFixed(1),
-                          style: TextStyle(
-                            fontSize: isInteractive ? 32 : 20,
-                            fontWeight: FontWeight.w900,
-                            color: primaryColor,
-                          ),
-                        ),
-                        if (isInteractive) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: primaryColor.withAlpha(38),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              _levelLabel,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: primaryColor,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    bottom: 2,
+                    child: Text(
+                      value.toInt().toString(),
+                      style: TextStyle(
+                        fontSize: isInteractive ? 36 : 26,
+                        fontWeight: FontWeight.w800,
+                        color: primaryColor,
+                        letterSpacing: -1.0,
+                      ),
                     ),
                   ),
                 ],
@@ -167,39 +137,64 @@ class GaugeChartWidget extends StatelessWidget {
             ),
           ),
           if (isInteractive && onChanged != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             SliderTheme(
               data: SliderThemeData(
                 activeTrackColor: primaryColor,
-                inactiveTrackColor: primaryColor.withAlpha(50),
-                thumbColor: primaryColor,
-                overlayColor: primaryColor.withAlpha(38),
-                trackHeight: 6,
+                inactiveTrackColor: primaryColor.withValues(alpha: 0.15),
+                thumbColor: Colors.white,
+                overlayColor: primaryColor.withValues(alpha: 0.12),
+                trackHeight: 4,
+                thumbShape: const RoundSliderThumbShape(
+                  enabledThumbRadius: 6,
+                  elevation: 2,
+                ),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                tickMarkShape: const RoundSliderTickMarkShape(tickMarkRadius: 1.5),
+                activeTickMarkColor: Colors.white.withValues(alpha: 0.8),
+                inactiveTickMarkColor: primaryColor.withValues(alpha: 0.3),
                 valueIndicatorShape: const RectangularSliderValueIndicatorShape(),
                 valueIndicatorColor: primaryColor,
                 valueIndicatorTextStyle: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontSize: 12,
                 ),
               ),
               child: Slider(
-                value: value,
+                value: value.clamp(0.0, 10.0),
                 min: 0,
                 max: 10,
-                divisions: 100,
-                label: value.toStringAsFixed(1),
+                divisions: 10,
+                label: value.toInt().toString(),
                 onChanged: (val) {
-                  onChanged!((val * 10).round() / 10.0);
+                  _handleValueChange(val);
                 },
               ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('0', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                Text('5', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                Text('10', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-              ],
+            const SizedBox(height: 2),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(11, (index) {
+                  final isSelected = index == value.toInt();
+                  return SizedBox(
+                    width: 18,
+                    child: Text(
+                      '$index',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                        color: isSelected
+                            ? primaryColor
+                            : (isDark ? Colors.grey.shade500 : Colors.grey.shade400),
+                      ),
+                    ),
+                  );
+                }),
+              ),
             ),
           ],
         ],
@@ -223,10 +218,10 @@ class _GaugePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height * 0.85);
     final radius = size.width * 0.42;
-    const strokeWidth = 14.0;
+    const strokeWidth = 7.0;
 
     final trackPaint = Paint()
-      ..color = isDark ? Colors.white.withAlpha(25) : Colors.black.withAlpha(15)
+      ..color = isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
@@ -256,19 +251,20 @@ class _GaugePainter extends CustomPainter {
       canvas.drawArc(rect, pi, sweepAngle, false, activePaint);
     }
 
+    // Indicator Dot
     final pointerAngle = pi + sweepAngle;
     final pointerX = center.dx + radius * cos(pointerAngle);
     final pointerY = center.dy + radius * sin(pointerAngle);
 
     final pointerGlow = Paint()
-      ..color = colors.last.withAlpha(75)
+      ..color = colors.last.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(pointerX, pointerY), strokeWidth, pointerGlow);
+    canvas.drawCircle(Offset(pointerX, pointerY), 6.0, pointerGlow);
 
     final pointerPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(pointerX, pointerY), strokeWidth / 2.2, pointerPaint);
+    canvas.drawCircle(Offset(pointerX, pointerY), 3.0, pointerPaint);
   }
 
   @override
