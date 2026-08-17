@@ -49,5 +49,24 @@ void main() {
       expect(provider.transactions.first.note, 'Groceries');
       expect(provider.transactions.first.type, TransactionType.moneyOut);
     });
+
+    test('FinanceProvider deleteTransaction recalculates account balance back to previous stage', () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = FinanceProvider();
+
+      await provider.recordMoneyIn(
+        account: 'Cash',
+        amount: 100.0,
+        date: DateTime(2026, 8, 13),
+        note: 'Deposit',
+      );
+      expect(provider.balances.cash, 100.0);
+
+      final txId = provider.transactions.first.id;
+      await provider.deleteTransaction(txId);
+
+      expect(provider.balances.cash, 0.0);
+      expect(provider.transactions.isEmpty, true);
+    });
   });
 }

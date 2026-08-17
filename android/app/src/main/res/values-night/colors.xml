@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark Mode App Theme Colors -->
+    <!-- Dark Mode App Theme Colors (Lavender & Midnight) -->
     <color name="widget_bg">#161324</color>
     <color name="widget_border">#28233A</color>
     <color name="widget_text_primary">#F9F5FF</color>
     <color name="widget_text_muted">#9CA3AF</color>
     <color name="widget_primary">#A78BFA</color>
-    <color name="widget_money_in_bg">#059669</color>
-    <color name="widget_money_in_text">#FFFFFF</color>
-    <color name="widget_money_out_bg">#DC2626</color>
-    <color name="widget_money_out_text">#FFFFFF</color>
+    <color name="widget_money_in_bg">#A78BFA</color>
+    <color name="widget_money_in_text">#0D0B14</color>
+    <color name="widget_money_out_bg">#231E3D</color>
+    <color name="widget_money_out_text">#A78BFA</color>
     <color name="widget_chip_bg">#231E3D</color>
     <color name="widget_chip_text">#A78BFA</color>
 </resources>

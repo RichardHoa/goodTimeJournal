@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/widget_service.dart';
-import '../widgets/money_transaction_modal.dart';
+import 'money_transaction_screen.dart';
 import 'finance_screen.dart';
 import 'home_screen.dart';
 
@@ -83,10 +83,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
       // Close any active dialogs if currently displayed
       Navigator.of(context).popUntil((route) => route.isFirst);
 
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (ctx) => MoneyTransactionModal(isMoneyIn: isMoneyIn),
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (ctx) => MoneyTransactionScreen(isMoneyIn: isMoneyIn),
+        ),
       );
     });
   }

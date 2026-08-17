@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/finance_provider.dart';
 import '../models/finance_model.dart';
 import '../theme/app_theme.dart';
-import '../widgets/money_transaction_modal.dart';
+import 'money_transaction_screen.dart';
 import '../widgets/finance_transaction_tile.dart';
 
 enum DateFilterType { allTime, today, thisWeek, thisMonth, custom }
@@ -33,11 +33,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   }
 
   void _openEditModal(BuildContext context, FinanceTransaction transaction) {
-    showDialog(
-      context: context,
-      builder: (ctx) => MoneyTransactionModal(
-        isMoneyIn: transaction.type == TransactionType.moneyIn,
-        existingTransaction: transaction,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => MoneyTransactionScreen(
+          isMoneyIn: transaction.type == TransactionType.moneyIn,
+          existingTransaction: transaction,
+        ),
       ),
     );
   }

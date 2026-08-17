@@ -250,9 +250,26 @@ class FinanceProvider with ChangeNotifier {
     await _saveData();
   }
 
-  /// Delete transaction from log
+  /// Delete transaction from log and recalculate account balance
   Future<void> deleteTransaction(String id) async {
-    _transactions.removeWhere((t) => t.id == id);
+    final index = _transactions.indexWhere((t) => t.id == id);
+    if (index == -1) return;
+
+    final tx = _transactions[index];
+
+    // Revert balance effect
+    if (tx.type == TransactionType.moneyIn) {
+      _balances = _adjustAccountBalance(_balances, tx.account, -tx.amount);
+    } else if (tx.type == TransactionType.moneyOut) {
+      _balances = _adjustAccountBalance(_balances, tx.account, tx.amount);
+    } else if (tx.type == TransactionType.fieldUpdate) {
+      if (tx.previousValue != null && tx.newValue != null) {
+        final delta = tx.previousValue! - tx.newValue!;
+        _balances = _adjustAccountBalance(_balances, tx.account, delta);
+      }
+    }
+
+    _transactions.removeAt(index);
     notifyListeners();
     await _saveData();
   }

@@ -6,7 +6,7 @@ import '../services/csv_service.dart';
 import '../theme/app_theme.dart';
 import 'finance_info_screen.dart';
 import 'transaction_history_screen.dart';
-import '../widgets/money_transaction_modal.dart';
+import 'money_transaction_screen.dart';
 import '../widgets/finance_transaction_tile.dart';
 
 class FinanceScreen extends StatelessWidget {
@@ -42,10 +42,11 @@ class FinanceScreen extends StatelessWidget {
     }
   }
 
-  void _openTransactionModal(BuildContext context, bool isMoneyIn) {
-    showDialog(
-      context: context,
-      builder: (ctx) => MoneyTransactionModal(isMoneyIn: isMoneyIn),
+  void _openTransactionScreen(BuildContext context, bool isMoneyIn) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MoneyTransactionScreen(isMoneyIn: isMoneyIn),
+      ),
     );
   }
 
@@ -112,8 +113,8 @@ class FinanceScreen extends StatelessWidget {
 
             // Money In / Money Out Action Buttons Group
             _ActionButtonsGroup(
-              onMoneyIn: () => _openTransactionModal(context, true),
-              onMoneyOut: () => _openTransactionModal(context, false),
+              onMoneyIn: () => _openTransactionScreen(context, true),
+              onMoneyOut: () => _openTransactionScreen(context, false),
             ),
             const SizedBox(height: 28),
 
@@ -358,11 +359,12 @@ class _RecentTransactionsSection extends StatelessWidget {
   const _RecentTransactionsSection();
 
   void _openEditModal(BuildContext context, FinanceTransaction transaction) {
-    showDialog(
-      context: context,
-      builder: (ctx) => MoneyTransactionModal(
-        isMoneyIn: transaction.type == TransactionType.moneyIn,
-        existingTransaction: transaction,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => MoneyTransactionScreen(
+          isMoneyIn: transaction.type == TransactionType.moneyIn,
+          existingTransaction: transaction,
+        ),
       ),
     );
   }

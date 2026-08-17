@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Light Mode App Theme Colors -->
+    <!-- Light Mode App Theme Colors (Iris & Lavender) -->
     <color name="widget_bg">#FFFFFF</color>
     <color name="widget_border">#E8E5F2</color>
     <color name="widget_text_primary">#1A1528</color>
     <color name="widget_text_muted">#6E6B7B</color>
     <color name="widget_primary">#6E56CF</color>
-    <color name="widget_money_in_bg">#059669</color>
+    <color name="widget_money_in_bg">#6E56CF</color>
     <color name="widget_money_in_text">#FFFFFF</color>
-    <color name="widget_money_out_bg">#DC2626</color>
-    <color name="widget_money_out_text">#FFFFFF</color>
+    <color name="widget_money_out_bg">#F4F0FF</color>
+    <color name="widget_money_out_text">#6E56CF</color>
     <color name="widget_chip_bg">#F4F0FF</color>
     <color name="widget_chip_text">#6E56CF</color>
 </resources>
