@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:good_time_journal_app/models/entry_model.dart';
-import 'package:good_time_journal_app/services/storage_service.dart';
+import 'package:mix_app/models/entry_model.dart';
+import 'package:mix_app/services/storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

@@ -1,5 +1,5 @@
-name: good_time_journal_app
-description: "A new Flutter project."
+name: mix_app
+description: "mixApp mobile application."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -38,6 +38,7 @@ dependencies:
   intl: ^0.20.3
   shared_preferences: ^2.5.5
   path_provider: ^2.1.6
+  home_widget: ^0.9.3
 
 dev_dependencies:
   flutter_test:

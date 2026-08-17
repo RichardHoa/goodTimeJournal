@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../models/entry_model.dart';
+import '../models/finance_model.dart';
 
 class CsvService {
-  /// Exports list of entries to CSV string with header:
-  /// date,activity,engagement,goodness,isFlow
+  /// Exports list of GTJ entries to CSV string
   static String exportToCsv(List<JournalEntry> entries) {
     final StringBuffer buffer = StringBuffer();
     buffer.writeln('date,activity,engagement,goodness,isFlow');
@@ -18,25 +18,56 @@ class CsvService {
     return buffer.toString();
   }
 
-  /// Saves CSV string to the device's Download folder
-  static Future<File?> saveCsvToDownloads(String csvContent) async {
+  /// Exports finance balances and transactions to CSV
+  static String exportFinanceToCsv(AccountBalances balances, List<FinanceTransaction> transactions) {
+    final StringBuffer buffer = StringBuffer();
+
+    // Summary Section
+    buffer.writeln('--- ACCOUNT BALANCES SUMMARY ---');
+    buffer.writeln('Account,Amount (k VND),Amount (VND)');
+    buffer.writeln('Cash,${balances.cash},${(balances.cash * 1000).toInt()}');
+    buffer.writeln('VCB,${balances.vcb},${(balances.vcb * 1000).toInt()}');
+    buffer.writeln('MB,${balances.mb},${(balances.mb * 1000).toInt()}');
+    buffer.writeln('Techcombank,${balances.techcombank},${(balances.techcombank * 1000).toInt()}');
+    buffer.writeln('MB fund,${balances.mbFund},${(balances.mbFund * 1000).toInt()}');
+    buffer.writeln('Total Money,${balances.totalMoney},${(balances.totalMoney * 1000).toInt()}');
+    buffer.writeln('Backup Fund,${balances.backupFund},${(balances.backupFund * 1000).toInt()}');
+    buffer.writeln('Money Left,${balances.moneyLeft},${(balances.moneyLeft * 1000).toInt()}');
+    buffer.writeln();
+
+    // Transactions Section
+    buffer.writeln('--- TRANSACTIONS LOG ---');
+    buffer.writeln('date,type,account,amount_k_vnd,amount_vnd,note,previous_value_k_vnd,new_value_k_vnd');
+    for (final t in transactions) {
+      final dateStr = t.formattedDate;
+      final typeStr = t.type.name;
+      final accountStr = _escapeCsvField(t.account);
+      final noteStr = _escapeCsvField(t.note);
+      final amountK = t.amount;
+      final amountVnd = (t.amount * 1000).toInt();
+      final prevStr = t.previousValue != null ? t.previousValue.toString() : '';
+      final newStr = t.newValue != null ? t.newValue.toString() : '';
+
+      buffer.writeln('$dateStr,$typeStr,$accountStr,$amountK,$amountVnd,$noteStr,$prevStr,$newStr');
+    }
+
+    return buffer.toString();
+  }
+
+  /// Saves CSV string to the device's Download folder safely
+  static Future<File?> saveCsvToDownloads(String csvContent, {String filenamePrefix = 'mixapp'}) async {
     try {
-      Directory? downloadsDir;
+      Directory? targetDir;
       if (Platform.isAndroid) {
-        final dir = Directory('/storage/emulated/0/Download');
-        if (await dir.exists()) {
-          downloadsDir = dir;
-        } else {
-          downloadsDir = await getExternalStorageDirectory();
-        }
+        targetDir = await getExternalStorageDirectory();
       } else {
-        downloadsDir = await getDownloadsDirectory();
+        targetDir = await getDownloadsDirectory();
       }
-      downloadsDir ??= await getApplicationDocumentsDirectory();
+      targetDir ??= await getApplicationDocumentsDirectory();
 
       final now = DateTime.now();
       final timestampStr = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
-      final filePath = '${downloadsDir.path}/good_time_journal_$timestampStr.csv';
+      final filePath = '${targetDir.path}/${filenamePrefix}_$timestampStr.csv';
       final file = File(filePath);
       return await file.writeAsString(csvContent);
     } catch (e) {
@@ -51,7 +82,6 @@ class CsvService {
 
     if (lines.isEmpty) return imported;
 
-    // Check if first line is header
     int startIdx = 0;
     final firstLineLower = lines[0].toLowerCase();
     if (firstLineLower.contains('date') && firstLineLower.contains('activity')) {
@@ -110,7 +140,7 @@ class CsvService {
         sb.write(char);
       } else if ((char == '\n' || char == '\r') && !insideQuotes) {
         if (char == '\r' && i + 1 < content.length && content[i + 1] == '\n') {
-          i++; // skip \n in \r\n
+          i++;
         }
         lines.add(sb.toString());
         sb.clear();
@@ -134,7 +164,7 @@ class CsvService {
       if (char == '"') {
         if (insideQuotes && i + 1 < line.length && line[i + 1] == '"') {
           sb.write('"');
-          i++; // Skip escaped quote
+          i++;
         } else {
           insideQuotes = !insideQuotes;
         }

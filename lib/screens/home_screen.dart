@@ -31,7 +31,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             const Text(
-              'goodTimeJournal',
+              'mixApp',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.3,
