@@ -289,12 +289,19 @@ class FinanceProvider with ChangeNotifier {
     final type = oldTx.type;
 
     AccountBalances updatedBalances = _balances;
+    double? newPreviousVal = oldTx.previousValue;
+    double? newNewVal = oldTx.newValue;
 
     // 1. Revert old transaction balance effect
     if (type == TransactionType.moneyIn) {
       updatedBalances = _adjustAccountBalance(updatedBalances, oldTx.account, -oldTx.amount);
     } else if (type == TransactionType.moneyOut) {
       updatedBalances = _adjustAccountBalance(updatedBalances, oldTx.account, oldTx.amount);
+    } else if (type == TransactionType.fieldUpdate) {
+      if (oldTx.previousValue != null && oldTx.newValue != null) {
+        final delta = oldTx.previousValue! - oldTx.newValue!;
+        updatedBalances = _adjustAccountBalance(updatedBalances, oldTx.account, delta);
+      }
     }
 
     // 2. Apply new transaction balance effect
@@ -302,6 +309,16 @@ class FinanceProvider with ChangeNotifier {
       updatedBalances = _adjustAccountBalance(updatedBalances, newAccount, newAmount);
     } else if (type == TransactionType.moneyOut) {
       updatedBalances = _adjustAccountBalance(updatedBalances, newAccount, -newAmount);
+    } else if (type == TransactionType.fieldUpdate) {
+      final currentAccountBalance = _getAccountBalance(updatedBalances, newAccount);
+      bool isIncrease = true;
+      if (oldTx.previousValue != null && oldTx.newValue != null) {
+        isIncrease = oldTx.newValue! >= oldTx.previousValue!;
+      }
+      final delta = isIncrease ? newAmount : -newAmount;
+      newPreviousVal = currentAccountBalance;
+      newNewVal = currentAccountBalance + delta;
+      updatedBalances = _adjustAccountBalance(updatedBalances, newAccount, delta);
     }
 
     _balances = updatedBalances;
@@ -314,8 +331,8 @@ class FinanceProvider with ChangeNotifier {
       amount: newAmount,
       date: newDate,
       note: newNote,
-      previousValue: oldTx.previousValue,
-      newValue: oldTx.newValue,
+      previousValue: newPreviousVal,
+      newValue: newNewVal,
     );
 
     _transactions[index] = updatedTx;
@@ -323,6 +340,25 @@ class FinanceProvider with ChangeNotifier {
 
     notifyListeners();
     await _saveData();
+  }
+
+  double _getAccountBalance(AccountBalances b, String account) {
+    switch (account) {
+      case 'Cash':
+        return b.cash;
+      case 'VCB':
+        return b.vcb;
+      case 'MB':
+        return b.mb;
+      case 'Techcombank':
+        return b.techcombank;
+      case 'MB fund':
+        return b.mbFund;
+      case 'Backup Fund':
+        return b.backupFund;
+      default:
+        return 0.0;
+    }
   }
 
   AccountBalances _adjustAccountBalance(AccountBalances b, String account, double delta) {
