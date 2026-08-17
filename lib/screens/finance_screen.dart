@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/finance_provider.dart';
-import '../models/finance_model.dart';
-import '../services/csv_service.dart';
 import '../theme/app_theme.dart';
 import 'finance_info_screen.dart';
 import 'transaction_history_screen.dart';
 import 'money_transaction_screen.dart';
-import '../widgets/finance_transaction_tile.dart';
+import '../widgets/deletable_transaction_tile.dart';
 
 class FinanceScreen extends StatelessWidget {
   const FinanceScreen({super.key});
@@ -16,30 +14,6 @@ class FinanceScreen extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const FinanceInfoScreen()),
     );
-  }
-
-  Future<void> _exportCsv(BuildContext context, FinanceProvider provider) async {
-    final csvData = CsvService.exportFinanceToCsv(provider.balances, provider.transactions);
-    final file = await CsvService.saveCsvToDownloads(csvData, filenamePrefix: 'mixapp_finance');
-    
-    if (context.mounted) {
-      if (file != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('CSV exported successfully to Downloads:\n${file.path}'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to export CSV file.'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
-        );
-      }
-    }
   }
 
   void _openTransactionScreen(BuildContext context, bool isMoneyIn) {
@@ -78,11 +52,14 @@ class FinanceScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            const Text(
-              'mixApp Finance',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
+            const Flexible(
+              child: Text(
+                'mixApp Finance',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
               ),
             ),
           ],
@@ -92,11 +69,6 @@ class FinanceScreen extends StatelessWidget {
             icon: const Icon(Icons.info_outline_rounded),
             tooltip: 'Finance Summary & Accounts',
             onPressed: () => _navigateToInfoScreen(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.file_download_outlined),
-            tooltip: 'Export CSV',
-            onPressed: () => _exportCsv(context, financeProvider),
           ),
           const SizedBox(width: 6),
         ],
@@ -358,17 +330,6 @@ class _ActionButtonsGroup extends StatelessWidget {
 class _RecentTransactionsSection extends StatelessWidget {
   const _RecentTransactionsSection();
 
-  void _openEditModal(BuildContext context, FinanceTransaction transaction) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (ctx) => MoneyTransactionScreen(
-          isMoneyIn: transaction.type == TransactionType.moneyIn,
-          existingTransaction: transaction,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -432,10 +393,7 @@ class _RecentTransactionsSection extends StatelessWidget {
             separatorBuilder: (context, index) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final t = recentTransactions[index];
-              return FinanceTransactionTile(
-                transaction: t,
-                onTap: () => _openEditModal(context, t),
-              );
+              return DeletableTransactionTile(key: ValueKey(t.id), transaction: t);
             },
           ),
       ],

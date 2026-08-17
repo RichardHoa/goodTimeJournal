@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../services/widget_service.dart';
 import 'money_transaction_screen.dart';
 import 'finance_screen.dart';
-import 'home_screen.dart';
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({super.key});
@@ -13,15 +12,9 @@ class MainShellScreen extends StatefulWidget {
 }
 
 class _MainShellScreenState extends State<MainShellScreen> {
-  int _currentIndex = 0; // Default tab is Finance tab (0)
   StreamSubscription<Uri?>? _widgetSubscription;
   String? _lastHandledUriString;
   DateTime? _lastHandledTime;
-
-  final List<Widget> _screens = const [
-    FinanceScreen(),
-    HomeScreen(),
-  ];
 
   @override
   void initState() {
@@ -69,13 +62,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
     _lastHandledUriString = uriString;
     _lastHandledTime = now;
 
-    // Switch to Finance tab
-    if (_currentIndex != 0) {
-      setState(() {
-        _currentIndex = 0;
-      });
-    }
-
     // Delay modal trigger slightly to ensure frame & context are fully mounted
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -93,31 +79,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (int index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet),
-            label: 'Finance',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.book_outlined),
-            selectedIcon: Icon(Icons.book),
-            label: 'mixApp Journal',
-          ),
-        ],
-      ),
-    );
+    return const FinanceScreen();
   }
 }

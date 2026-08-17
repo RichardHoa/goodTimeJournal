@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/finance_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/account_icon.dart';
+import '../widgets/amount_input.dart';
+import '../widgets/finance_csv_actions.dart';
+import 'funds_screen.dart';
+import 'trash_screen.dart';
 
 /// Full-page Finance Info & Accounts Management screen with back button.
 class FinanceInfoScreen extends StatelessWidget {
@@ -39,6 +45,7 @@ class FinanceInfoScreen extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final provider = Provider.of<FinanceProvider>(context);
     final balances = provider.balances;
+    final moneyLeftColor = provider.moneyLeft < 0 ? theme.colorScheme.error : theme.colorScheme.secondary;
 
     return Scaffold(
       appBar: AppBar(
@@ -104,12 +111,12 @@ class FinanceInfoScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _formatVnd(balances.moneyLeft),
+                    _formatVnd(provider.moneyLeft),
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -0.6,
-                      color: theme.colorScheme.secondary,
+                      color: moneyLeftColor,
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -163,7 +170,7 @@ class FinanceInfoScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Backup Fund',
+                                'Funds',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
@@ -171,7 +178,7 @@ class FinanceInfoScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                _formatVnd(balances.backupFund),
+                                _formatVnd(provider.fundsTotal),
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -189,19 +196,11 @@ class FinanceInfoScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Section 1: Accounts & Funds
+            // Section 1: Accounts
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Accounts & Funds',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.primary,
-                    letterSpacing: -0.2,
-                  ),
-                ),
+                const _SectionTitle('Accounts'),
                 Text(
                   'Tap item to edit',
                   style: TextStyle(
@@ -223,23 +222,23 @@ class FinanceInfoScreen extends StatelessWidget {
               child: Column(
                 children: [
                   _buildEditableAccountRow(
-                    context, provider, 'Cash', balances.cash, Icons.payments_outlined, isFirst: true,
+                    context, provider, 'Cash', balances.cash, isFirst: true,
                   ),
                   _buildDivider(isDark),
                   _buildEditableAccountRow(
-                    context, provider, 'VCB', balances.vcb, Icons.account_balance_outlined,
+                    context, provider, 'VCB', balances.vcb,
                   ),
                   _buildDivider(isDark),
                   _buildEditableAccountRow(
-                    context, provider, 'MB', balances.mb, Icons.account_balance_rounded,
+                    context, provider, 'MB', balances.mb,
                   ),
                   _buildDivider(isDark),
                   _buildEditableAccountRow(
-                    context, provider, 'Techcombank', balances.techcombank, Icons.credit_card_rounded,
+                    context, provider, 'Techcombank', balances.techcombank,
                   ),
                   _buildDivider(isDark),
                   _buildEditableAccountRow(
-                    context, provider, 'MB fund', balances.mbFund, Icons.savings_outlined, isLast: true,
+                    context, provider, FinanceProvider.mbInvestment, balances.mbInvestment, isLast: true,
                   ),
                 ],
               ),
@@ -248,15 +247,7 @@ class FinanceInfoScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Section 2: Asset Breakdown
-            Text(
-              'Asset Breakdown',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.primary,
-                letterSpacing: -0.2,
-              ),
-            ),
+            const _SectionTitle('Asset Breakdown'),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(20),
@@ -285,13 +276,13 @@ class FinanceInfoScreen extends StatelessWidget {
                   const SizedBox(height: 14),
                   _buildAssetRow(
                     context,
-                    label: 'Backup Fund',
-                    amount: balances.backupFund,
-                    subtitle: 'Tap icon to edit reserve fund',
+                    label: 'Funds',
+                    amount: provider.fundsTotal,
+                    subtitle: 'Tap to manage Funds',
                     isEditable: true,
                     color: theme.colorScheme.primary,
-                    onTap: () => _openEditFieldDialog(
-                      context, provider, 'Backup Fund', balances.backupFund,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const FundsScreen()),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -300,10 +291,10 @@ class FinanceInfoScreen extends StatelessWidget {
                   _buildAssetRow(
                     context,
                     label: 'Money Left',
-                    amount: balances.moneyLeft,
-                    subtitle: 'Total Money - Backup Fund',
+                    amount: provider.moneyLeft,
+                    subtitle: 'Total Money − Funds',
                     isBold: true,
-                    color: theme.colorScheme.secondary,
+                    color: moneyLeftColor,
                   ),
                 ],
               ),
@@ -311,7 +302,69 @@ class FinanceInfoScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // Section 3: App & Asset Credits
+            // Section 3: Settings & Data
+            const _SectionTitle('Settings & Data'),
+            const SizedBox(height: 10),
+            // Material, clipped to the card, so row ink splashes show and
+            // stay inside the rounded corners.
+            Material(
+              color: isDark ? AppTheme.darkSurface : AppTheme.lightSurface,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+              ),
+              child: Column(
+                children: [
+                  _buildToolRow(
+                    context,
+                    icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                    label: 'Dark mode',
+                    onTap: () => context.read<SettingsProvider>().toggleThemeMode(),
+                    trailing: Switch.adaptive(
+                      value: context.watch<SettingsProvider>().isDarkMode,
+                      onChanged: (_) => context.read<SettingsProvider>().toggleThemeMode(),
+                    ),
+                  ),
+                  _buildDivider(isDark),
+                  _buildToolRow(
+                    context,
+                    icon: Icons.delete_outline_rounded,
+                    label: 'Trash',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const TrashScreen()),
+                    ),
+                    trailing: Badge(
+                      isLabelVisible: provider.trash.isNotEmpty,
+                      label: Text('${provider.trash.length}'),
+                      child: Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                      ),
+                    ),
+                  ),
+                  _buildDivider(isDark),
+                  _buildToolRow(
+                    context,
+                    icon: Icons.file_download_outlined,
+                    label: 'Export CSV',
+                    onTap: () => exportFinanceCsv(context),
+                  ),
+                  _buildDivider(isDark),
+                  _buildToolRow(
+                    context,
+                    icon: Icons.file_upload_outlined,
+                    label: 'Import CSV',
+                    onTap: () => importFinanceCsv(context),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Section 4: App & Asset Credits
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -370,12 +423,48 @@ class FinanceInfoScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildToolRow(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Widget? trailing,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkPrimaryContainer : AppTheme.lightPrimaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              ),
+            ),
+            ?trailing,
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEditableAccountRow(
     BuildContext context,
     FinanceProvider provider,
     String name,
-    double value,
-    IconData icon, {
+    double value, {
     bool isFirst = false,
     bool isLast = false,
   }) {
@@ -400,7 +489,7 @@ class FinanceInfoScreen extends StatelessWidget {
                     : AppTheme.lightPrimaryContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: theme.colorScheme.primary, size: 20),
+              child: AccountIcon(name, size: 20),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -500,6 +589,25 @@ class FinanceInfoScreen extends StatelessWidget {
   }
 }
 
+class _SectionTitle extends StatelessWidget {
+  final String text;
+
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: Theme.of(context).colorScheme.primary,
+        letterSpacing: -0.2,
+      ),
+    );
+  }
+}
+
 class _EditAccountDialog extends StatefulWidget {
   final String fieldName;
   final double currentValue;
@@ -535,8 +643,7 @@ class _EditAccountDialogState extends State<_EditAccountDialog> {
   }
 
   void _handleSave() {
-    final rawText = _controller.text.trim().replaceAll(',', '.');
-    final newValue = double.tryParse(rawText);
+    final newValue = parseAmountK(_controller.text);
     if (newValue == null || newValue < 0) {
       setState(() {
         _errorText = 'Please enter a valid positive number';
@@ -590,16 +697,12 @@ class _EditAccountDialogState extends State<_EditAccountDialog> {
               controller: _controller,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               autofocus: true,
-              decoration: InputDecoration(
-                suffixText: 'k VND',
-                errorText: _errorText,
-              ),
+              decoration: amountInputDecoration(context, text: _controller.text, errorText: _errorText),
               onChanged: (_) {
-                if (_errorText != null) {
-                  setState(() {
-                    _errorText = null;
-                  });
-                }
+                // Rebuild for the full-VND preview, clearing any error.
+                setState(() {
+                  _errorText = null;
+                });
               },
             ),
             const SizedBox(height: 24),

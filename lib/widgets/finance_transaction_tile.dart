@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/finance_model.dart';
 import '../theme/app_theme.dart';
+import 'account_icon.dart';
 
 /// Reusable, performance-optimized transaction tile for feed and history lists.
 class FinanceTransactionTile extends StatelessWidget {
   final FinanceTransaction transaction;
   final VoidCallback? onTap;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
 
   static final DateFormat _dateFormatter = DateFormat('MMM dd, yyyy HH:mm');
   static final NumberFormat _currencyFormatter = NumberFormat('#,###', 'en_US');
@@ -17,8 +16,6 @@ class FinanceTransactionTile extends StatelessWidget {
     super.key,
     required this.transaction,
     this.onTap,
-    this.onEdit,
-    this.onDelete,
   });
 
   static String formatVnd(double kValue) {
@@ -31,19 +28,16 @@ class FinanceTransactionTile extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final isIncome = transaction.type == TransactionType.moneyIn;
-    final isExpense = transaction.type == TransactionType.moneyOut;
-
-    IconData iconData = Icons.edit_note_rounded;
-    Color itemColor = theme.colorScheme.primary;
-
-    if (isIncome) {
-      iconData = Icons.arrow_downward_rounded;
-      itemColor = theme.colorScheme.primary;
-    } else if (isExpense) {
-      iconData = Icons.arrow_upward_rounded;
-      itemColor = theme.colorScheme.secondary;
-    }
+    // Money In is blue and points into the wallet; Money Out is magenta and
+    // points away from it, so direction reads at a glance even without color.
+    final (iconData, itemColor, typeLabel, sign) = switch (transaction.type) {
+      TransactionType.moneyIn =>
+        (Icons.south_west_rounded, isDark ? AppTheme.darkMoneyIn : AppTheme.lightMoneyIn, 'Money In', '+'),
+      TransactionType.moneyOut =>
+        (Icons.north_east_rounded, isDark ? AppTheme.darkMoneyOut : AppTheme.lightMoneyOut, 'Money Out', '−'),
+      TransactionType.fieldUpdate => (Icons.edit_note_rounded, theme.colorScheme.primary, 'Update', ''),
+    };
+    final isFlow = transaction.type != TransactionType.fieldUpdate;
 
     final dateStr = _dateFormatter.format(transaction.date);
     final formattedAmount = formatVnd(transaction.amount);
@@ -51,10 +45,14 @@ class FinanceTransactionTile extends StatelessWidget {
     final cardContent = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.cardTheme.color,
+        color: isFlow
+            ? Color.alphaBlend(itemColor.withValues(alpha: isDark ? 0.07 : 0.05), theme.cardTheme.color ?? theme.colorScheme.surface)
+            : theme.cardTheme.color,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
+          color: isFlow
+              ? itemColor.withValues(alpha: isDark ? 0.35 : 0.3)
+              : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
           width: 1,
         ),
       ),
@@ -80,6 +78,8 @@ class FinanceTransactionTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
+                    AccountIcon(transaction.account, size: 16),
+                    const SizedBox(width: 6),
                     Flexible(
                       child: Text(
                         transaction.account,
@@ -99,7 +99,7 @@ class FinanceTransactionTile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        isIncome ? 'Money In' : (isExpense ? 'Money Out' : 'Update'),
+                        typeLabel,
                         style: TextStyle(
                           color: itemColor,
                           fontSize: 10.5,
@@ -134,46 +134,16 @@ class FinanceTransactionTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  '${isIncome ? '+' : (isExpense ? '-' : '')}$formattedAmount',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                    color: itemColor,
-                  ),
-                ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '$sign$formattedAmount',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                color: itemColor,
               ),
-              if (onEdit != null || onDelete != null) ...[
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (onEdit != null)
-                      IconButton(
-                        icon: Icon(Icons.edit_outlined, size: 18, color: theme.colorScheme.primary),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        tooltip: 'Edit transaction',
-                        onPressed: onEdit,
-                      ),
-                    if (onEdit != null && onDelete != null) const SizedBox(width: 12),
-                    if (onDelete != null)
-                      IconButton(
-                        icon: Icon(Icons.delete_outline_rounded, size: 18, color: theme.colorScheme.error),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        tooltip: 'Delete transaction',
-                        onPressed: onDelete,
-                      ),
-                  ],
-                ),
-              ],
-            ],
+            ),
           ),
         ],
       ),

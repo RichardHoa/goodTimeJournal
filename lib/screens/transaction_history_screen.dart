@@ -4,10 +4,10 @@ import 'package:provider/provider.dart';
 import '../providers/finance_provider.dart';
 import '../models/finance_model.dart';
 import '../theme/app_theme.dart';
-import 'money_transaction_screen.dart';
-import '../widgets/finance_transaction_tile.dart';
+import '../utils/date_presets.dart';
+import '../widgets/account_icon.dart';
+import '../widgets/deletable_transaction_tile.dart';
 
-enum DateFilterType { allTime, today, thisWeek, thisMonth, custom }
 enum TypeFilterType { all, moneyIn, moneyOut, update }
 
 class TransactionHistoryScreen extends StatefulWidget {
@@ -19,56 +19,18 @@ class TransactionHistoryScreen extends StatefulWidget {
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   final TextEditingController _searchController = TextEditingController();
-  DateFilterType _dateFilter = DateFilterType.allTime;
+  DatePreset _datePreset = DatePreset.allTime;
+  /// A picked range; when set it replaces [_datePreset].
   DateTimeRange? _customDateRange;
   TypeFilterType _typeFilter = TypeFilterType.all;
   String _selectedAccount = 'All Accounts';
   
-  final List<String> _accountOptions = ['All Accounts', 'Cash', 'VCB', 'MB', 'Techcombank', 'MB fund', 'Backup Fund'];
+  final List<String> _accountOptions = ['All Accounts', ...FinanceProvider.liquidAccounts, FinanceProvider.mbInvestment];
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _openEditModal(BuildContext context, FinanceTransaction transaction) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (ctx) => MoneyTransactionScreen(
-          isMoneyIn: transaction.type == TransactionType.moneyIn,
-          existingTransaction: transaction,
-        ),
-      ),
-    );
-  }
-
-  void _confirmDelete(BuildContext context, FinanceProvider provider, String id) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Transaction'),
-        content: const Text('Are you sure you want to delete this transaction record?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              provider.deleteTransaction(id);
-              Navigator.of(ctx).pop();
-            },
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _selectCustomDateRange() async {
@@ -84,15 +46,68 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     );
     if (picked != null) {
       setState(() {
-        _customDateRange = picked;
-        _dateFilter = DateFilterType.custom;
+        _customDateRange = wholeDays(picked.start, picked.end);
       });
     }
   }
 
+  bool get _hasDateFilter => _customDateRange != null || _datePreset != DatePreset.allTime;
+
+  String get _dateFilterLabel {
+    final custom = _customDateRange;
+    if (custom == null) return _datePreset.label;
+    final format = DateFormat('dd/MM');
+    return '${format.format(custom.start)} – ${format.format(custom.end)}';
+  }
+
+  Future<void> _openDateFilterSheet() async {
+    final theme = Theme.of(context);
+    Widget option(String label, bool selected, VoidCallback onTap) {
+      return ListTile(
+        title: Text(label, style: TextStyle(fontWeight: selected ? FontWeight.bold : FontWeight.w500)),
+        trailing: selected ? Icon(Icons.check_rounded, color: theme.colorScheme.primary) : null,
+        onTap: onTap,
+      );
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final preset in DatePreset.values)
+              option(preset.label, _customDateRange == null && _datePreset == preset, () {
+                setState(() {
+                  _datePreset = preset;
+                  _customDateRange = null;
+                });
+                Navigator.of(sheetContext).pop();
+              }),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.calendar_month_rounded),
+              title: Text(
+                _customDateRange == null ? 'Pick range…' : 'Pick range… ($_dateFilterLabel)',
+                style: TextStyle(fontWeight: _customDateRange != null ? FontWeight.bold : FontWeight.w500),
+              ),
+              trailing: _customDateRange != null ? Icon(Icons.check_rounded, color: theme.colorScheme.primary) : null,
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _selectCustomDateRange();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<FinanceTransaction> _filterTransactions(List<FinanceTransaction> all) {
     final query = _searchController.text.trim().toLowerCase();
-    final now = DateTime.now();
+    final dateRange = _customDateRange ?? _datePreset.rangeFor(DateTime.now());
 
     return all.where((t) {
       // 1. Search Query Filter
@@ -106,24 +121,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       // 2. Type Filter
       if (_typeFilter == TypeFilterType.moneyIn && t.type != TransactionType.moneyIn) return false;
       if (_typeFilter == TypeFilterType.moneyOut && t.type != TransactionType.moneyOut) return false;
-      if (_typeFilter == TypeFilterType.update && t.type != TransactionType.fieldUpdate) return false;
+      if (_typeFilter == TypeFilterType.update && !t.isBalanceUpdate) return false;
 
       // 3. Account Filter
       if (_selectedAccount != 'All Accounts' && t.account != _selectedAccount) return false;
 
       // 4. Date Range Filter
-      if (_dateFilter == DateFilterType.today) {
-        final isSameDay = t.date.year == now.year && t.date.month == now.month && t.date.day == now.day;
-        if (!isSameDay) return false;
-      } else if (_dateFilter == DateFilterType.thisWeek) {
-        final sevenDaysAgo = now.subtract(const Duration(days: 7));
-        if (t.date.isBefore(sevenDaysAgo)) return false;
-      } else if (_dateFilter == DateFilterType.thisMonth) {
-        if (t.date.year != now.year || t.date.month != now.month) return false;
-      } else if (_dateFilter == DateFilterType.custom && _customDateRange != null) {
-        final start = DateTime(_customDateRange!.start.year, _customDateRange!.start.month, _customDateRange!.start.day);
-        final end = DateTime(_customDateRange!.end.year, _customDateRange!.end.month, _customDateRange!.end.day, 23, 59, 59);
-        if (t.date.isBefore(start) || t.date.isAfter(end)) return false;
+      if (dateRange != null && (t.date.isBefore(dateRange.start) || t.date.isAfter(dateRange.end))) {
+        return false;
       }
 
       return true;
@@ -205,7 +210,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                       const PopupMenuItem(value: TypeFilterType.all, child: Text('All Types')),
                       const PopupMenuItem(value: TypeFilterType.moneyIn, child: Text('Money In (+)')),
                       const PopupMenuItem(value: TypeFilterType.moneyOut, child: Text('Money Out (-)')),
-                      const PopupMenuItem(value: TypeFilterType.update, child: Text('Field Updates')),
+                      const PopupMenuItem(value: TypeFilterType.update, child: Text('Balance updates (MB investment)')),
                     ],
                   ),
                   const SizedBox(width: 8),
@@ -218,32 +223,36 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     child: _FilterPill(
                       label: _selectedAccount,
                       icon: Icons.account_balance_wallet_outlined,
+                      leading: _selectedAccount == 'All Accounts' ? null : AccountIcon(_selectedAccount, size: 16),
                       isSelected: _selectedAccount != 'All Accounts',
                       hasDropdownArrow: true,
                     ),
                     itemBuilder: (ctx) => _accountOptions.map((acc) {
-                      return PopupMenuItem(value: acc, child: Text(acc));
+                      return PopupMenuItem(
+                        value: acc,
+                        child: Row(
+                          children: [
+                            if (acc == 'All Accounts')
+                              const Icon(Icons.account_balance_wallet_outlined, size: 20)
+                            else
+                              AccountIcon(acc, size: 20),
+                            const SizedBox(width: 10),
+                            Text(acc),
+                          ],
+                        ),
+                      );
                     }).toList(),
                   ),
                   const SizedBox(width: 8),
 
-                  // 3. Date Range Filter Quick Pills
-                  _buildDateFilterPill(DateFilterType.allTime, 'All Time'),
-                  const SizedBox(width: 8),
-                  _buildDateFilterPill(DateFilterType.today, 'Today'),
-                  const SizedBox(width: 8),
-                  _buildDateFilterPill(DateFilterType.thisWeek, 'This Week'),
-                  const SizedBox(width: 8),
-                  _buildDateFilterPill(DateFilterType.thisMonth, 'This Month'),
-                  const SizedBox(width: 8),
+                  // 3. Date Filter: one pill opening the presets sheet
                   GestureDetector(
-                    onTap: _selectCustomDateRange,
+                    onTap: _openDateFilterSheet,
                     child: _FilterPill(
-                      label: _dateFilter == DateFilterType.custom && _customDateRange != null
-                          ? '${DateFormat('MM/dd').format(_customDateRange!.start)} - ${DateFormat('MM/dd').format(_customDateRange!.end)}'
-                          : 'Custom Date',
+                      label: _dateFilterLabel,
                       icon: Icons.calendar_month_rounded,
-                      isSelected: _dateFilter == DateFilterType.custom,
+                      isSelected: _hasDateFilter,
+                      hasDropdownArrow: true,
                     ),
                   ),
                 ],
@@ -266,7 +275,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                 ),
                 if (_typeFilter != TypeFilterType.all ||
                     _selectedAccount != 'All Accounts' ||
-                    _dateFilter != DateFilterType.allTime ||
+                    _hasDateFilter ||
                     _searchController.text.isNotEmpty)
                   GestureDetector(
                     onTap: () {
@@ -274,7 +283,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                         _searchController.clear();
                         _typeFilter = TypeFilterType.all;
                         _selectedAccount = 'All Accounts';
-                        _dateFilter = DateFilterType.allTime;
+                        _datePreset = DatePreset.allTime;
                         _customDateRange = null;
                       });
                     },
@@ -329,11 +338,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     separatorBuilder: (ctx, i) => const SizedBox(height: 10),
                     itemBuilder: (ctx, i) {
                       final t = filtered[i];
-                      return FinanceTransactionTile(
-                        transaction: t,
-                        onEdit: () => _openEditModal(context, t),
-                        onDelete: () => _confirmDelete(context, provider, t.id),
-                      );
+                      return DeletableTransactionTile(key: ValueKey(t.id), transaction: t);
                     },
                   ),
           ),
@@ -350,33 +355,20 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       case TypeFilterType.update: return 'Updates';
     }
   }
-
-  Widget _buildDateFilterPill(DateFilterType type, String label) {
-    final isSelected = _dateFilter == type;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _dateFilter = type;
-          _customDateRange = null;
-        });
-      },
-      child: _FilterPill(
-        label: label,
-        isSelected: isSelected,
-      ),
-    );
-  }
 }
 
 class _FilterPill extends StatelessWidget {
   final String label;
   final IconData? icon;
+  /// Shown instead of [icon] when given.
+  final Widget? leading;
   final bool isSelected;
   final bool hasDropdownArrow;
 
   const _FilterPill({
     required this.label,
     this.icon,
+    this.leading,
     this.isSelected = false,
     this.hasDropdownArrow = false,
   });
@@ -410,8 +402,8 @@ class _FilterPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[
-            Icon(icon, size: 16, color: foregroundColor),
+          if (leading != null || icon != null) ...[
+            leading ?? Icon(icon, size: 16, color: foregroundColor),
             const SizedBox(width: 6),
           ],
           Text(

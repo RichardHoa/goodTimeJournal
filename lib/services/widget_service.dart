@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
 
@@ -31,6 +32,8 @@ class WidgetService {
         name: androidWidget4x4Name,
         androidName: androidWidget4x4Name,
       );
+    } on MissingPluginException {
+      // Ignored in unit tests where native channels are unmocked
     } catch (e) {
       debugPrint('Error updating home widget balance data: $e');
     }

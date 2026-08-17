@@ -10,6 +10,10 @@ class AppTheme {
   static const Color lightSecondary = Color(0xFF9E86FF); // Soft Violet Accent
   static const Color lightGoodness = Color(0xFF059669); // Deep Emerald
   static const Color lightEngagement = Color(0xFF6E56CF); // Vibrant Iris
+  // Money In / Money Out flank the iris purple on the color wheel
+  // (blue on one side, magenta on the other) so they stay on-theme.
+  static const Color lightMoneyIn = Color(0xFF2563EB); // Royal Blue
+  static const Color lightMoneyOut = Color(0xFFC026D3); // Orchid Magenta
   static const Color lightText = Color(0xFF1A1528); // Deep Charcoal Violet
   static const Color lightTextMuted = Color(0xFF6E6B7B);
   static const Color lightBorder = Color(0xFFE8E5F2);
@@ -22,6 +26,8 @@ class AppTheme {
   static const Color darkSecondary = Color(0xFFC084FC); // Muted Lavender
   static const Color darkGoodness = Color(0xFF34D399); // Emerald Mint
   static const Color darkEngagement = Color(0xFFA78BFA); // Soft Lavender
+  static const Color darkMoneyIn = Color(0xFF7DB4FF); // Periwinkle Blue
+  static const Color darkMoneyOut = Color(0xFFF07AD8); // Soft Orchid
   static const Color darkText = Color(0xFFF9F5FF);
   static const Color darkTextMuted = Color(0xFF9CA3AF);
   static const Color darkBorder = Color(0xFF28233A);

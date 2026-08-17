@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../providers/finance_provider.dart';
 import '../models/finance_model.dart';
 import '../theme/app_theme.dart';
+import '../widgets/account_icon.dart';
+import '../widgets/amount_input.dart';
 
 class MoneyTransactionScreen extends StatefulWidget {
   final bool isMoneyIn;
@@ -21,7 +23,7 @@ class MoneyTransactionScreen extends StatefulWidget {
 
 class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
-  final List<String> _accounts = FinanceProvider.liquidAccounts;
+  late final List<String> _accounts;
   late String _selectedAccount;
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
@@ -29,14 +31,18 @@ class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
   final FocusNode _noteFocusNode = FocusNode();
   
   DateTime _selectedDate = DateTime.now();
-  String _convertedVndPreview = '';
 
   @override
   void initState() {
     super.initState();
     final editTx = widget.existingTransaction;
+    // A Balance update (e.g. MB investment) must stay on its own account,
+    // never be moved onto a Liquid account.
+    _accounts = editTx != null && !FinanceProvider.liquidAccounts.contains(editTx.account)
+        ? [editTx.account]
+        : FinanceProvider.liquidAccounts;
     if (editTx != null) {
-      _selectedAccount = _accounts.contains(editTx.account) ? editTx.account : _accounts[0];
+      _selectedAccount = editTx.account;
       final amountVal = editTx.amount;
       _amountController.text = amountVal.toStringAsFixed(amountVal.truncateToDouble() == amountVal ? 0 : 2);
       _selectedDate = editTx.date;
@@ -44,31 +50,15 @@ class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
     } else {
       _selectedAccount = _accounts[0];
     }
-    _amountController.addListener(_updateVndPreview);
-    _updateVndPreview();
+    _amountController.addListener(_onAmountChanged);
   }
 
-  void _updateVndPreview() {
-    final rawText = _amountController.text.trim().replaceAll(',', '.');
-    final parsed = double.tryParse(rawText);
-    if (parsed != null && parsed > 0) {
-      final fullVnd = parsed * 1000;
-      final formatter = NumberFormat('#,###', 'en_US');
-      setState(() {
-        _convertedVndPreview = '= ${formatter.format(fullVnd)} VND';
-      });
-    } else {
-      if (_convertedVndPreview.isNotEmpty) {
-        setState(() {
-          _convertedVndPreview = '';
-        });
-      }
-    }
-  }
+  /// Rebuild so the full-VND preview follows the typed amount.
+  void _onAmountChanged() => setState(() {});
 
   @override
   void dispose() {
-    _amountController.removeListener(_updateVndPreview);
+    _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
     _noteController.dispose();
     _amountFocusNode.dispose();
@@ -92,8 +82,7 @@ class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      final rawText = _amountController.text.trim().replaceAll(',', '.');
-      final amount = double.tryParse(rawText) ?? 0.0;
+      final amount = parseAmountK(_amountController.text) ?? 0.0;
       final note = _noteController.text.trim();
       final provider = Provider.of<FinanceProvider>(context, listen: false);
 
@@ -236,15 +225,25 @@ class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: _selectedAccount,
                   decoration: InputDecoration(
-                    prefixIcon: Icon(
-                      Icons.account_balance_rounded,
-                      color: theme.colorScheme.primary,
+                    prefixIcon: Center(
+                      widthFactor: 1,
+                      heightFactor: 1,
+                      child: AccountIcon(_selectedAccount, size: 22),
                     ),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 48),
                   ),
+                  // The selected account's icon already shows as the prefix.
+                  selectedItemBuilder: (context) => _accounts.map((acc) => Text(acc)).toList(),
                   items: _accounts.map((acc) {
                     return DropdownMenuItem(
                       value: acc,
-                      child: Text(acc),
+                      child: Row(
+                        children: [
+                          AccountIcon(acc, size: 20),
+                          const SizedBox(width: 10),
+                          Text(acc),
+                        ],
+                      ),
                     );
                   }).toList(),
                   onChanged: (val) {
@@ -275,24 +274,12 @@ class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
                   onFieldSubmitted: (_) {
                     FocusScope.of(context).requestFocus(_noteFocusNode);
                   },
-                  decoration: InputDecoration(
-                    prefixIcon: Icon(
-                      Icons.attach_money_rounded,
-                      color: theme.colorScheme.primary,
-                    ),
-                    suffixText: 'k VND',
-                    helperText: _convertedVndPreview.isNotEmpty ? _convertedVndPreview : null,
-                    helperStyle: TextStyle(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  decoration: amountInputDecoration(context, text: _amountController.text),
                   validator: (val) {
                     if (val == null || val.isEmpty) {
                       return 'Please enter an amount';
                     }
-                    final rawText = val.trim().replaceAll(',', '.');
-                    final parsed = double.tryParse(rawText);
+                    final parsed = parseAmountK(val);
                     if (parsed == null || parsed <= 0) {
                       return 'Please enter a valid positive number';
                     }
