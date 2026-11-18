@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/finance_model.dart';
 import '../providers/finance_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/amounts.dart';
 import '../widgets/amount_input.dart';
 import '../widgets/finance_transaction_tile.dart';
 import '../widgets/swipe_to_delete.dart';
@@ -172,7 +173,7 @@ class _FundDialogState extends State<_FundDialog> {
     _nameController = TextEditingController(text: widget.fund?.name ?? '');
     final amount = widget.fund?.amount;
     _amountController = TextEditingController(
-      text: amount == null ? '' : amount.toStringAsFixed(amount.truncateToDouble() == amount ? 0 : 2),
+      text: amount == null ? '' : formatAmountK(amount),
     );
   }
 
@@ -189,7 +190,7 @@ class _FundDialogState extends State<_FundDialog> {
     final amount = parseAmountK(_amountController.text);
 
     final nameError = provider.validateFundName(name, exceptId: widget.fund?.id);
-    final amountError = amount == null || amount < 0 ? 'Please enter a valid positive number' : null;
+    final amountError = validateAmountText(_amountController.text, allowZero: true);
     if (nameError != null || amountError != null) {
       setState(() {
         _nameError = nameError;
@@ -230,11 +231,12 @@ class _FundDialogState extends State<_FundDialog> {
             },
           ),
           const SizedBox(height: 14),
-          TextField(
+          AmountField(
             controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: amountInputDecoration(context, text: _amountController.text, errorText: _amountError),
-            onChanged: (_) => setState(() => _amountError = null),
+            errorText: _amountError,
+            onChanged: (_) {
+              if (_amountError != null) setState(() => _amountError = null);
+            },
             onSubmitted: (_) => _save(),
           ),
         ],

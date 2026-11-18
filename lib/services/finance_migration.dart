@@ -23,6 +23,7 @@ class FinanceMigration {
   static const String transactionsKey = 'mixapp_finance_transactions';
   static const String fundsKey = 'mixapp_finance_funds';
   static const String trashKey = 'mixapp_finance_trash';
+  static const String categoriesKey = 'mixapp_finance_categories';
   static const String dataVersionKey = 'mixapp_finance_data_version';
   /// Where raw stored data under [key] is set aside for recovery by hand,
   /// before [reason] replaces it. Nothing reads these keys back.

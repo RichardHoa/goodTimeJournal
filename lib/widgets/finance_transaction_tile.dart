@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/finance_model.dart';
+import '../utils/amounts.dart' as amounts;
 import '../theme/app_theme.dart';
 import 'account_icon.dart';
 
@@ -8,20 +9,19 @@ import 'account_icon.dart';
 class FinanceTransactionTile extends StatelessWidget {
   final FinanceTransaction transaction;
   final VoidCallback? onTap;
+  /// The record's Category name; null when Uncategorized.
+  final String? categoryName;
 
   static final DateFormat _dateFormatter = DateFormat('MMM dd, yyyy HH:mm');
-  static final NumberFormat _currencyFormatter = NumberFormat('#,###', 'en_US');
 
   const FinanceTransactionTile({
     super.key,
     required this.transaction,
     this.onTap,
+    this.categoryName,
   });
 
-  static String formatVnd(double kValue) {
-    final double fullVnd = kValue * 1000;
-    return '${_currencyFormatter.format(fullVnd)} VND';
-  }
+  static String formatVnd(double kValue) => amounts.formatVnd(kValue);
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +124,7 @@ class FinanceTransactionTile extends StatelessWidget {
                 ],
                 const SizedBox(height: 4),
                 Text(
-                  dateStr,
+                  categoryName == null ? dateStr : '$categoryName · $dateStr',
                   style: TextStyle(
                     fontSize: 11.5,
                     color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,

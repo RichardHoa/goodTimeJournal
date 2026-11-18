@@ -274,7 +274,7 @@ void main() {
       );
       expect(provider.balances.techcombank, 380.0);
 
-      final outTxId = provider.transactions.first.id;
+      final outTxId = provider.transactions.singleWhere((t) => t.note == 'Shopping').id;
       await provider.deleteTransaction(outTxId);
 
       expect(provider.balances.techcombank, 500.0);
@@ -357,7 +357,7 @@ void main() {
       );
       expect(provider.balances.mb, 400.0);
 
-      final outTxId = provider.transactions.first.id;
+      final outTxId = provider.transactions.singleWhere((t) => t.note == 'Lunch').id;
       await provider.updateTransaction(
         id: outTxId,
         newAccount: 'MB',
@@ -514,7 +514,7 @@ void main() {
       ];
 
       final csvString = FinanceCsv.encode(balances, transactions, funds);
-      final summary = csvString.split('--- TRANSACTIONS LOG ---').first.trim().split('\n');
+      final summary = csvString.split('--- CATEGORIES ---').first.trim().split('\n');
 
       expect(summary, [
         '--- ACCOUNT BALANCES SUMMARY ---',
@@ -532,6 +532,8 @@ void main() {
       ]);
       expect(csvString.contains('MB fund'), false);
       expect(csvString.contains('Backup Fund'), false);
+      final categoriesSection = csvString.split('--- CATEGORIES ---').last.split('--- TRANSACTIONS LOG ---').first;
+      expect(categoriesSection.trim().split('\n').first, 'type,name');
       expect(csvString.contains('--- TRANSACTIONS LOG ---'), true);
       expect(csvString.contains('moneyIn'), true);
     });

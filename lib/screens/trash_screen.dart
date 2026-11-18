@@ -8,7 +8,7 @@ import '../widgets/account_icon.dart';
 import '../widgets/finance_transaction_tile.dart';
 import '../widgets/swipe_to_delete.dart';
 
-/// Deleted transactions and Funds, kept for 30 days and restorable.
+/// Deleted transactions, Funds and Categories, kept for 30 days and restorable.
 class TrashScreen extends StatelessWidget {
   const TrashScreen({super.key});
 
@@ -84,7 +84,7 @@ class TrashScreen extends StatelessWidget {
                     const Text('Trash is empty', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     Text(
-                      'Deleted transactions and Funds stay here for '
+                      'Deleted transactions, Funds and Categories stay here for '
                       '${FinanceProvider.trashRetention.inDays} days.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13, color: muted),
@@ -155,6 +155,13 @@ class _TrashTile extends StatelessWidget {
         kindLabel = 'Fund';
         title = '${fund.name} · ${FinanceTransactionTile.formatVnd(fund.amount)}';
         note = null;
+      case TrashKind.category:
+        final category = item.category!;
+        icon = Icon(Icons.label_outline_rounded, size: 22, color: theme.colorScheme.primary);
+        kindLabel = category.type == TransactionType.moneyIn ? 'Money In Category' : 'Money Out Category';
+        title = category.name;
+        final used = item.transactionIds.length;
+        note = used == 0 ? null : 'Was on ${used == 1 ? '1 record' : '$used records'}';
     }
 
     return Container(

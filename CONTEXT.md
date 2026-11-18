@@ -38,18 +38,22 @@ A transaction that decreases one Liquid account's balance.
 _Avoid_: Expense, withdrawal
 
 **Balance adjustment**:
-A Money In or Money Out created when the user edits a Liquid account's balance directly; its amount is the difference.
+A Money In or Money Out created when the user edits a Liquid account's balance directly, covering whatever part of the difference the user didn't explain with their own Money In or Money Out entries.
 _Avoid_: Field update (for Liquid accounts)
+
+**Category**:
+A user-defined label saying what a Money In or Money Out was for (e.g. "Salary", "Food"). Money In and Money Out each have their own list of Categories. Optional; a record without one is Uncategorized. Removing a Category sends it to Trash and leaves its records Uncategorized; restoring it gives it back to those records.
+_Avoid_: Tag, type
 
 **Balance update**:
 A record of a direct edit to MB investment's balance, keeping the previous and new values.
 _Avoid_: Field update
 
 **Trash**:
-Where deleted transactions and Funds stay for 30 days before being removed for good; restoring one puts its effect back.
+Where deleted transactions, Funds and Categories stay for 30 days before being removed for good; restoring one puts its effect back.
 _Avoid_: Recycle bin, archive
 
 ### Units
 
 **k**:
-Amounts are entered and stored in thousands of đồng; `50` means 50,000 đ.
+Amounts are entered and stored in thousands of đồng; `50` means 50,000 đ. An amount can have up to 5 decimal places in k.

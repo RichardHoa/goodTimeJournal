@@ -88,7 +88,7 @@ void main() {
       final provider = await fresh();
       await provider.recordMoneyIn(account: 'Cash', amount: 100, date: DateTime(2026, 8, 1), note: 'Salary');
       await provider.recordMoneyOut(account: 'Cash', amount: 30, date: DateTime(2026, 8, 2), note: 'Lunch');
-      final lunch = provider.transactions.first;
+      final lunch = provider.transactions.singleWhere((t) => t.note == 'Lunch');
 
       await provider.deleteTransaction(lunch.id);
 
@@ -104,7 +104,7 @@ void main() {
       final provider = await fresh();
       await provider.updateAccountField('Cash', 500);
       await provider.recordMoneyOut(account: 'Cash', amount: 80, date: DateTime(2026, 8, 2), note: 'Dinner');
-      final dinner = provider.transactions.first;
+      final dinner = provider.transactions.singleWhere((t) => t.note == 'Dinner');
       await provider.deleteTransaction(dinner.id);
       await provider.updateAccountField('Cash', 1000);
 
@@ -245,7 +245,7 @@ void main() {
     await provider.addFund(name: 'Backup', amount: 100);
     await provider.addFund(name: 'Travel', amount: 25);
     await provider.deleteFund(provider.funds.last.id);
-    await provider.deleteTransaction(provider.transactions.first.id);
+    await provider.deleteTransaction(provider.transactions.singleWhere((t) => t.note == 'Taxi').id);
 
     final reloaded = await load();
 

@@ -5,15 +5,22 @@ class FinanceImport {
   final AccountBalances balances;
   final List<FinanceTransaction> transactions;
   final List<Fund> funds;
+  final List<Category> categories;
 
-  const FinanceImport({required this.balances, required this.transactions, required this.funds});
+  const FinanceImport({
+    required this.balances,
+    required this.transactions,
+    required this.funds,
+    this.categories = const [],
+  });
 }
 
 /// The finance CSV format: an account balances summary (with one row per
-/// Fund) followed by a transactions log. Pure text in and out.
+/// Fund), the Categories, then a transactions log. Pure text in and out.
 class FinanceCsv {
   static const String _summaryMarker = '--- ACCOUNT BALANCES SUMMARY ---';
   static const String _transactionsMarker = '--- TRANSACTIONS LOG ---';
+  static const String _categoriesMarker = '--- CATEGORIES ---';
   static const String _fundPrefix = 'Fund: ';
 
   /// Exports finance balances, Funds and transactions to CSV. Trash is
@@ -21,11 +28,12 @@ class FinanceCsv {
   static String encode(
     AccountBalances balances,
     List<FinanceTransaction> transactions,
-    List<Fund> funds,
-  ) {
+    List<Fund> funds, {
+    List<Category> categories = const [],
+  }) {
     final buffer = StringBuffer();
     void amountRow(String label, double k) {
-      buffer.writeln('${_escapeCsvField(label)},$k,${(k * 1000).toInt()}');
+      buffer.writeln('${_escapeCsvField(label)},$k,${(k * 1000).round()}');
     }
 
     buffer.writeln(_summaryMarker);
@@ -40,19 +48,28 @@ class FinanceCsv {
     amountRow('Money Left', balances.totalMoney - fundsTotal);
     buffer.writeln();
 
+    buffer.writeln(_categoriesMarker);
+    buffer.writeln('type,name');
+    for (final c in categories) {
+      buffer.writeln('${c.type.name},${_escapeCsvField(c.name)}');
+    }
+    buffer.writeln();
+
     buffer.writeln(_transactionsMarker);
+    final categoryNames = {for (final c in categories) c.id: c.name};
     buffer.writeln(_Column.values.map((c) => c.header).join(','));
     for (final t in transactions) {
-      buffer.writeln(_Column.values.map((c) => c.write(t)).join(','));
+      buffer.writeln(_Column.values.map((c) => c.write(t, categoryNames)).join(','));
     }
 
     return buffer.toString();
   }
 
-  /// Reads a CSV written by [encode]. Every transaction and Fund gets an id
-  /// from [newId], and every Fund gets [now] as its creation time, in the
-  /// file's order. Exports made before the `datetime` column existed still
-  /// import: their transactions get the start of their day as the time.
+  /// Reads a CSV written by [encode]. Every transaction, Fund and Category
+  /// gets an id from [newId], and every Fund and Category gets [now] as its
+  /// creation time, in the file's order. Exports made before the `datetime`
+  /// column existed still import: their transactions get the start of their
+  /// day as the time. Exports made before Categories import with none.
   /// Throws a [FormatException] if the text isn't a finance export.
   static FinanceImport decode(String csv, {required String Function() newId, required DateTime now}) {
     final text = csv.startsWith('﻿') ? csv.substring(1) : csv;
@@ -64,10 +81,34 @@ class FinanceCsv {
       throw const FormatException('Not a mixApp finance export');
     }
 
+    final categoriesStart = rows.indexWhere((r) => r.first.trim() == _categoriesMarker);
+    final hasCategories = categoriesStart > summaryStart && categoriesStart < transactionsStart;
+    final summaryEnd = hasCategories ? categoriesStart : transactionsStart;
+
+    final categories = <Category>[];
+    if (hasCategories) {
+      // Skip the marker and the header row.
+      for (final row in rows.sublist(categoriesStart + 2, transactionsStart)) {
+        final type = TransactionType.values.asNameMap()[row.first.trim()];
+        final name = row.length > 1 ? row[1].trim() : '';
+        if (type == null || type == TransactionType.fieldUpdate || name.isEmpty) {
+          throw FormatException('Invalid Category "${row.join(',')}"');
+        }
+        categories.add(Category(id: newId(), name: name, type: type, createdAt: now));
+      }
+    }
+    String? categoryIdFor(TransactionType type, String name) {
+      if (name.isEmpty) return null;
+      for (final c in categories) {
+        if (c.type == type && c.name == name) return c.id;
+      }
+      return null;
+    }
+
     final amounts = <String, double>{};
     final funds = <Fund>[];
     // Skip the marker and the header row.
-    for (final row in rows.sublist(summaryStart + 2, transactionsStart)) {
+    for (final row in rows.sublist(summaryStart + 2, summaryEnd)) {
       final label = row.first.trim();
       final amount = double.tryParse(row.length > 1 ? row[1].trim() : '');
       if (amount == null) throw FormatException('Invalid amount for "$label"');
@@ -113,10 +154,16 @@ class FinanceCsv {
         note: field(_Column.note),
         previousValue: double.tryParse(field(_Column.previousValue).trim()),
         newValue: double.tryParse(field(_Column.newValue).trim()),
+        categoryId: categoryIdFor(type, field(_Column.category).trim()),
       ));
     }
 
-    return FinanceImport(balances: AccountBalances.fromAccounts(amounts), transactions: transactions, funds: funds);
+    return FinanceImport(
+      balances: AccountBalances.fromAccounts(amounts),
+      transactions: transactions,
+      funds: funds,
+      categories: categories,
+    );
   }
 
   /// Splits CSV text into rows of fields, handling quoted fields that hold
@@ -182,7 +229,8 @@ enum _Column {
   note('note'),
   previousValue('previous_value_k_vnd'),
   newValue('new_value_k_vnd'),
-  dateTime('datetime');
+  dateTime('datetime'),
+  category('category');
 
   final String header;
   const _Column(this.header);
@@ -190,17 +238,19 @@ enum _Column {
   /// Present in every export, including those made before `datetime`.
   static const List<_Column> required = [date, type, account, amountK, note];
 
-  String write(FinanceTransaction t) {
+  /// [t]'s value in this column; [categoryNames] maps Category ids to names.
+  String write(FinanceTransaction t, Map<String, String> categoryNames) {
     return switch (this) {
       date => t.formattedDate,
       type => t.type.name,
       account => _escapeCsvField(t.account),
       amountK => '${t.amount}',
-      amountVnd => '${(t.amount * 1000).toInt()}',
+      amountVnd => '${(t.amount * 1000).round()}',
       note => _escapeCsvField(t.note),
       previousValue => t.previousValue?.toString() ?? '',
       newValue => t.newValue?.toString() ?? '',
       dateTime => t.date.toIso8601String(),
+      category => _escapeCsvField(categoryNames[t.categoryId] ?? ''),
     };
   }
 }

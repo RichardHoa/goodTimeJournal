@@ -38,7 +38,12 @@ Future<void> exportFinanceCsv(BuildContext context) async {
   if (target == null || !context.mounted) return;
 
   final provider = context.read<FinanceProvider>();
-  final csv = FinanceCsv.encode(provider.balances, provider.transactions, provider.funds);
+  final csv = FinanceCsv.encode(
+    provider.balances,
+    provider.transactions,
+    provider.funds,
+    categories: provider.categories,
+  );
   try {
     switch (target) {
       case _ExportTarget.folder:
@@ -84,7 +89,8 @@ Future<void> importFinanceCsv(BuildContext context) async {
   if (!context.mounted) return;
 
   String count(int n, String noun) => '$n $noun${n == 1 ? '' : 's'}';
-  final imported = '${count(data.transactions.length, 'transaction')} and ${count(data.funds.length, 'Fund')}';
+  final imported = '${count(data.transactions.length, 'transaction')}, ${count(data.funds.length, 'Fund')} '
+      'and ${count(data.categories.length, 'Category')}';
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -93,7 +99,8 @@ Future<void> importFinanceCsv(BuildContext context) async {
         '$fileName has $imported, with Total Money of '
         '${FinanceTransactionTile.formatVnd(data.balances.totalMoney)}.\n\n'
         'Your current ${count(provider.transactions.length, 'transaction')}, '
-        '${count(provider.funds.length, 'Fund')} and balances will be replaced. Trash is kept.',
+        '${count(provider.funds.length, 'Fund')}, ${count(provider.categories.length, 'Category')} '
+        'and balances will be replaced. Trash is kept.',
       ),
       actions: [
         TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),

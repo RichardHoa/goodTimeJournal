@@ -108,6 +108,9 @@ class FinanceTransaction {
   final String note;
   final double? previousValue;
   final double? newValue;
+  /// The [Category] this Money In or Money Out was for; null when
+  /// Uncategorized.
+  final String? categoryId;
 
   FinanceTransaction({
     required this.id,
@@ -118,7 +121,23 @@ class FinanceTransaction {
     required this.note,
     this.previousValue,
     this.newValue,
+    this.categoryId,
   });
+
+  /// A copy with its Category set to [categoryId] (null: Uncategorized).
+  FinanceTransaction withCategory(String? categoryId) {
+    return FinanceTransaction(
+      id: id,
+      type: type,
+      account: account,
+      amount: amount,
+      date: date,
+      note: note,
+      previousValue: previousValue,
+      newValue: newValue,
+      categoryId: categoryId,
+    );
+  }
 
   /// A direct edit to MB investment, as opposed to a Money In/Out.
   bool get isBalanceUpdate => type == TransactionType.fieldUpdate && account == 'MB investment';
@@ -137,6 +156,7 @@ class FinanceTransaction {
       'note': note,
       'previousValue': previousValue,
       'newValue': newValue,
+      'categoryId': categoryId,
     };
   }
 
@@ -165,6 +185,7 @@ class FinanceTransaction {
       note: json['note'] as String? ?? '',
       previousValue: (json['previousValue'] as num?)?.toDouble(),
       newValue: (json['newValue'] as num?)?.toDouble(),
+      categoryId: json['categoryId'] as String?,
     );
   }
 }
@@ -212,30 +233,107 @@ class Fund {
   }
 }
 
-enum TrashKind { transaction, fund }
+/// One Money In or Money Out the user types in to explain part of a
+/// balance change.
+class BalanceChangeEntry {
+  final double amount;
+  final String note;
+  final DateTime date;
+  final String? categoryId;
 
-/// A deleted transaction or Fund, kept in Trash for 30 days.
+  const BalanceChangeEntry({
+    required this.amount,
+    required this.note,
+    required this.date,
+    this.categoryId,
+  });
+}
+
+/// A user-defined label saying what a Money In or Money Out was for. Money
+/// In and Money Out each have their own Categories, told apart by [type].
+class Category {
+  final String id;
+  final String name;
+  /// [TransactionType.moneyIn] or [TransactionType.moneyOut].
+  final TransactionType type;
+  final DateTime createdAt;
+
+  Category({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.createdAt,
+  });
+
+  Category copyWith({String? name}) {
+    return Category(id: id, name: name ?? this.name, type: type, createdAt: createdAt);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'type': type.name,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  factory Category.fromJson(Map<String, dynamic> json) {
+    return Category(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      type: TransactionType.values.byName(json['type'] as String),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+  }
+}
+
+enum TrashKind { transaction, fund, category }
+
+/// A deleted transaction, Fund or Category, kept in Trash for 30 days.
 class TrashItem {
   final String id;
   final TrashKind kind;
   final DateTime deletedAt;
   final FinanceTransaction? transaction;
   final Fund? fund;
+  final Category? category;
+  /// For a Category: the records it was removed from, which get it back on
+  /// restore.
+  final List<String> transactionIds;
 
   TrashItem.ofTransaction({required this.id, required this.deletedAt, required FinanceTransaction this.transaction})
       : kind = TrashKind.transaction,
-        fund = null;
+        fund = null,
+        category = null,
+        transactionIds = const [];
 
   TrashItem.ofFund({required this.id, required this.deletedAt, required Fund this.fund})
       : kind = TrashKind.fund,
-        transaction = null;
+        transaction = null,
+        category = null,
+        transactionIds = const [];
+
+  TrashItem.ofCategory({
+    required this.id,
+    required this.deletedAt,
+    required Category this.category,
+    required this.transactionIds,
+  })  : kind = TrashKind.category,
+        transaction = null,
+        fund = null;
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'kind': kind.name,
       'deletedAt': deletedAt.toIso8601String(),
-      'payload': kind == TrashKind.transaction ? transaction!.toJson() : fund!.toJson(),
+      'payload': switch (kind) {
+        TrashKind.transaction => transaction!.toJson(),
+        TrashKind.fund => fund!.toJson(),
+        TrashKind.category => category!.toJson(),
+      },
+      if (kind == TrashKind.category) 'transactionIds': transactionIds,
     };
   }
 
@@ -248,6 +346,13 @@ class TrashItem {
         return TrashItem.ofTransaction(id: id, deletedAt: deletedAt, transaction: FinanceTransaction.fromJson(payload));
       case TrashKind.fund:
         return TrashItem.ofFund(id: id, deletedAt: deletedAt, fund: Fund.fromJson(payload));
+      case TrashKind.category:
+        return TrashItem.ofCategory(
+          id: id,
+          deletedAt: deletedAt,
+          category: Category.fromJson(payload),
+          transactionIds: List<String>.from(json['transactionIds'] as List? ?? const []),
+        );
     }
   }
 }

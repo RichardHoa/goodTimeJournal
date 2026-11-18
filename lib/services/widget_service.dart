@@ -20,7 +20,7 @@ class WidgetService {
   /// Update the displayed liquid balance on Android home screen widgets
   static Future<void> updateWidgetData(double totalLiquidBalance) async {
     try {
-      final formatter = NumberFormat('#,##0.##', 'en_US');
+      final formatter = NumberFormat('#,##0.#####', 'en_US');
       final formattedBalance = '${formatter.format(totalLiquidBalance)} k';
 
       await HomeWidget.saveWidgetData<String>('total_balance', formattedBalance);

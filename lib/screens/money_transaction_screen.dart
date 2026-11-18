@@ -5,7 +5,9 @@ import '../providers/finance_provider.dart';
 import '../models/finance_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/account_icon.dart';
+import '../utils/amounts.dart';
 import '../widgets/amount_input.dart';
+import '../widgets/category_picker.dart';
 
 class MoneyTransactionScreen extends StatefulWidget {
   final bool isMoneyIn;
@@ -31,6 +33,12 @@ class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
   final FocusNode _noteFocusNode = FocusNode();
   
   DateTime _selectedDate = DateTime.now();
+  String? _categoryId;
+
+  /// Money In or Money Out; a Balance update has no Category.
+  TransactionType get _type =>
+      widget.existingTransaction?.type ?? (widget.isMoneyIn ? TransactionType.moneyIn : TransactionType.moneyOut);
+  bool get _hasCategory => _type != TransactionType.fieldUpdate;
 
   @override
   void initState() {
@@ -43,22 +51,17 @@ class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
         : FinanceProvider.liquidAccounts;
     if (editTx != null) {
       _selectedAccount = editTx.account;
-      final amountVal = editTx.amount;
-      _amountController.text = amountVal.toStringAsFixed(amountVal.truncateToDouble() == amountVal ? 0 : 2);
+      _amountController.text = formatAmountK(editTx.amount);
       _selectedDate = editTx.date;
       _noteController.text = editTx.note;
+      _categoryId = editTx.categoryId;
     } else {
       _selectedAccount = _accounts[0];
     }
-    _amountController.addListener(_onAmountChanged);
   }
-
-  /// Rebuild so the full-VND preview follows the typed amount.
-  void _onAmountChanged() => setState(() {});
 
   @override
   void dispose() {
-    _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
     _noteController.dispose();
     _amountFocusNode.dispose();
@@ -93,6 +96,7 @@ class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
           newAmount: amount,
           newDate: _selectedDate,
           newNote: note,
+          newCategoryId: _categoryId,
         );
       } else if (widget.isMoneyIn) {
         provider.recordMoneyIn(
@@ -100,6 +104,7 @@ class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
           amount: amount,
           date: _selectedDate,
           note: note,
+          categoryId: _categoryId,
         );
       } else {
         provider.recordMoneyOut(
@@ -107,6 +112,7 @@ class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
           amount: amount,
           date: _selectedDate,
           note: note,
+          categoryId: _categoryId,
         );
       }
 
@@ -266,26 +272,33 @@ class _MoneyTransactionScreenState extends State<MoneyTransactionScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                TextFormField(
+                AmountField(
                   controller: _amountController,
                   focusNode: _amountFocusNode,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   textInputAction: TextInputAction.next,
-                  onFieldSubmitted: (_) {
+                  onSubmitted: (_) {
                     FocusScope.of(context).requestFocus(_noteFocusNode);
                   },
-                  decoration: amountInputDecoration(context, text: _amountController.text),
-                  validator: (val) {
-                    if (val == null || val.isEmpty) {
-                      return 'Please enter an amount';
-                    }
-                    final parsed = parseAmountK(val);
-                    if (parsed == null || parsed <= 0) {
-                      return 'Please enter a valid positive number';
-                    }
-                    return null;
-                  },
+                  validator: (val) => validateAmountText(val),
                 ),
+
+                if (_hasCategory) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Category',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  CategoryPicker(
+                    type: _type,
+                    value: _categoryId,
+                    onChanged: (id) => setState(() => _categoryId = id),
+                  ),
+                ],
 
                 // REASON BOX IMMEDIATELY BELOW AMOUNT BOX (Tight 12px vertical spacing)
                 const SizedBox(height: 12),

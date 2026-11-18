@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/finance_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/account_icon.dart';
+import '../utils/amounts.dart';
 import '../widgets/amount_input.dart';
 import '../widgets/finance_csv_actions.dart';
+import 'balance_change_screen.dart';
+import 'categories_screen.dart';
 import 'funds_screen.dart';
 import 'trash_screen.dart';
 
@@ -14,12 +16,7 @@ import 'trash_screen.dart';
 class FinanceInfoScreen extends StatelessWidget {
   const FinanceInfoScreen({super.key});
 
-  static final NumberFormat _currencyFormatter = NumberFormat('#,###', 'en_US');
-
-  String _formatVnd(double kValue) {
-    final double fullVnd = kValue * 1000;
-    return '${_currencyFormatter.format(fullVnd)} VND';
-  }
+  String _formatVnd(double kValue) => formatVnd(kValue);
 
   void _openEditFieldDialog(
     BuildContext context,
@@ -33,7 +30,15 @@ class FinanceInfoScreen extends StatelessWidget {
         fieldName: fieldName,
         currentValue: currentValue,
         onSave: (newValue) {
-          provider.updateAccountField(fieldName, newValue);
+          if (newValue == currentValue) return;
+          if (FinanceProvider.liquidAccounts.contains(fieldName)) {
+            // A Liquid account's change is explained with Money In/Out entries.
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (ctx) => BalanceChangeScreen(account: fieldName, newBalance: newValue),
+            ));
+          } else {
+            provider.updateAccountField(fieldName, newValue);
+          }
         },
       ),
     );
@@ -324,6 +329,20 @@ class FinanceInfoScreen extends StatelessWidget {
                     trailing: Switch.adaptive(
                       value: context.watch<SettingsProvider>().isDarkMode,
                       onChanged: (_) => context.read<SettingsProvider>().toggleThemeMode(),
+                    ),
+                  ),
+                  _buildDivider(isDark),
+                  _buildToolRow(
+                    context,
+                    icon: Icons.label_outline_rounded,
+                    label: 'Categories',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const CategoriesScreen()),
+                    ),
+                    trailing: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
                     ),
                   ),
                   _buildDivider(isDark),
@@ -630,10 +649,7 @@ class _EditAccountDialogState extends State<_EditAccountDialog> {
   @override
   void initState() {
     super.initState();
-    final v = widget.currentValue;
-    _controller = TextEditingController(
-      text: v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 2),
-    );
+    _controller = TextEditingController(text: formatAmountK(widget.currentValue));
   }
 
   @override
@@ -643,16 +659,17 @@ class _EditAccountDialogState extends State<_EditAccountDialog> {
   }
 
   void _handleSave() {
-    final newValue = parseAmountK(_controller.text);
-    if (newValue == null || newValue < 0) {
+    final error = validateAmountText(_controller.text, allowZero: true);
+    if (error != null) {
       setState(() {
-        _errorText = 'Please enter a valid positive number';
+        _errorText = error;
       });
       return;
     }
 
-    widget.onSave(newValue);
+    // Close first: saving a Liquid account opens the explain screen.
     Navigator.of(context).pop();
+    widget.onSave(parseAmountK(_controller.text)!);
   }
 
   @override
@@ -693,17 +710,14 @@ class _EditAccountDialogState extends State<_EditAccountDialog> {
               ],
             ),
             const SizedBox(height: 16),
-            TextField(
+            AmountField(
               controller: _controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               autofocus: true,
-              decoration: amountInputDecoration(context, text: _controller.text, errorText: _errorText),
+              errorText: _errorText,
               onChanged: (_) {
-                // Rebuild for the full-VND preview, clearing any error.
-                setState(() {
-                  _errorText = null;
-                });
+                if (_errorText != null) setState(() => _errorText = null);
               },
+              onSubmitted: (_) => _handleSave(),
             ),
             const SizedBox(height: 24),
             Row(

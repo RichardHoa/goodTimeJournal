@@ -23,6 +23,7 @@ class DeletableTransactionTile extends StatelessWidget {
       onDelete: () => context.read<FinanceProvider>().deleteTransaction(transaction.id),
       child: FinanceTransactionTile(
         transaction: transaction,
+        categoryName: context.watch<FinanceProvider>().categoryById(transaction.categoryId)?.name,
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
             builder: (ctx) => MoneyTransactionScreen(

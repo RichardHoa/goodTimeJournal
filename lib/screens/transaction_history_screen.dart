@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/finance_provider.dart';
 import '../models/finance_model.dart';
 import '../theme/app_theme.dart';
-import '../utils/date_presets.dart';
-import '../widgets/account_icon.dart';
+import '../utils/amounts.dart';
+import '../utils/history_filter.dart';
 import '../widgets/deletable_transaction_tile.dart';
-
-enum TypeFilterType { all, moneyIn, moneyOut, update }
+import 'history_filters_screen.dart';
 
 class TransactionHistoryScreen extends StatefulWidget {
   const TransactionHistoryScreen({super.key});
@@ -18,14 +16,12 @@ class TransactionHistoryScreen extends StatefulWidget {
 }
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
+  /// Kept while the app runs, so leaving and reopening history keeps the
+  /// filter; a restart resets it.
+  static HistoryFilter _lastFilter = const HistoryFilter();
+
   final TextEditingController _searchController = TextEditingController();
-  DatePreset _datePreset = DatePreset.allTime;
-  /// A picked range; when set it replaces [_datePreset].
-  DateTimeRange? _customDateRange;
-  TypeFilterType _typeFilter = TypeFilterType.all;
-  String _selectedAccount = 'All Accounts';
-  
-  final List<String> _accountOptions = ['All Accounts', ...FinanceProvider.liquidAccounts, FinanceProvider.mbInvestment];
+  HistoryFilter _filter = _lastFilter;
 
   @override
   void dispose() {
@@ -33,114 +29,41 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     super.dispose();
   }
 
-  Future<void> _selectCustomDateRange() async {
+  void _setFilter(HistoryFilter filter) {
+    setState(() => _filter = filter);
+    _lastFilter = filter;
+  }
+
+  Map<String, String> _categoryNames(FinanceProvider provider) => {for (final c in provider.categories) c.id: c.name};
+
+  List<FinanceTransaction> _apply(FinanceProvider provider, HistoryFilter filter) {
     final now = DateTime.now();
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      initialDateRange: _customDateRange ?? DateTimeRange(
-        start: now.subtract(const Duration(days: 7)),
-        end: now,
-      ),
-    );
-    if (picked != null) {
-      setState(() {
-        _customDateRange = wholeDays(picked.start, picked.end);
-      });
-    }
+    final names = _categoryNames(provider);
+    return provider.transactions
+        .where((t) => filter.matches(t, now: now, query: _searchController.text, categoryNames: names))
+        .toList();
   }
 
-  bool get _hasDateFilter => _customDateRange != null || _datePreset != DatePreset.allTime;
-
-  String get _dateFilterLabel {
-    final custom = _customDateRange;
-    if (custom == null) return _datePreset.label;
-    final format = DateFormat('dd/MM');
-    return '${format.format(custom.start)} – ${format.format(custom.end)}';
-  }
-
-  Future<void> _openDateFilterSheet() async {
-    final theme = Theme.of(context);
-    Widget option(String label, bool selected, VoidCallback onTap) {
-      return ListTile(
-        title: Text(label, style: TextStyle(fontWeight: selected ? FontWeight.bold : FontWeight.w500)),
-        trailing: selected ? Icon(Icons.check_rounded, color: theme.colorScheme.primary) : null,
-        onTap: onTap,
-      );
-    }
-
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final preset in DatePreset.values)
-              option(preset.label, _customDateRange == null && _datePreset == preset, () {
-                setState(() {
-                  _datePreset = preset;
-                  _customDateRange = null;
-                });
-                Navigator.of(sheetContext).pop();
-              }),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.calendar_month_rounded),
-              title: Text(
-                _customDateRange == null ? 'Pick range…' : 'Pick range… ($_dateFilterLabel)',
-                style: TextStyle(fontWeight: _customDateRange != null ? FontWeight.bold : FontWeight.w500),
-              ),
-              trailing: _customDateRange != null ? Icon(Icons.check_rounded, color: theme.colorScheme.primary) : null,
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                _selectCustomDateRange();
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
+  Future<void> _openFilters(FinanceProvider provider) async {
+    final picked = await Navigator.of(context).push<HistoryFilter>(
+      MaterialPageRoute(
+        builder: (ctx) => HistoryFiltersScreen(
+          initial: _filter,
+          countFor: (filter) => _apply(provider, filter).length,
         ),
       ),
     );
-  }
-
-  List<FinanceTransaction> _filterTransactions(List<FinanceTransaction> all) {
-    final query = _searchController.text.trim().toLowerCase();
-    final dateRange = _customDateRange ?? _datePreset.rangeFor(DateTime.now());
-
-    return all.where((t) {
-      // 1. Search Query Filter
-      if (query.isNotEmpty) {
-        final noteMatch = t.note.toLowerCase().contains(query);
-        final accountMatch = t.account.toLowerCase().contains(query);
-        final amountMatch = t.amount.toString().contains(query);
-        if (!noteMatch && !accountMatch && !amountMatch) return false;
-      }
-
-      // 2. Type Filter
-      if (_typeFilter == TypeFilterType.moneyIn && t.type != TransactionType.moneyIn) return false;
-      if (_typeFilter == TypeFilterType.moneyOut && t.type != TransactionType.moneyOut) return false;
-      if (_typeFilter == TypeFilterType.update && !t.isBalanceUpdate) return false;
-
-      // 3. Account Filter
-      if (_selectedAccount != 'All Accounts' && t.account != _selectedAccount) return false;
-
-      // 4. Date Range Filter
-      if (dateRange != null && (t.date.isBefore(dateRange.start) || t.date.isAfter(dateRange.end))) {
-        return false;
-      }
-
-      return true;
-    }).toList();
+    if (picked != null && mounted) _setFilter(picked);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final muted = isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted;
     final provider = Provider.of<FinanceProvider>(context);
-    final filtered = _filterTransactions(provider.transactions);
+    final filtered = _apply(provider, _filter);
+    final activeCount = _filter.activeCount;
 
     return Scaffold(
       appBar: AppBar(
@@ -155,272 +78,217 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: 'Search by note, account or amount...',
-                prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {});
-                        },
-                      )
-                    : null,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: 'Search note, account, category…',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: isDark ? AppTheme.darkSurface : AppTheme.lightPrimaryContainer.withValues(alpha: 0.6),
+                    ),
+                  ),
                 ),
-                filled: true,
-                fillColor: isDark ? AppTheme.darkSurface : AppTheme.lightPrimaryContainer.withValues(alpha: 0.6),
-              ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  height: 48,
+                  child: activeCount == 0
+                      ? OutlinedButton.icon(
+                          onPressed: () => _openFilters(provider),
+                          icon: const Icon(Icons.tune_rounded, size: 18),
+                          label: const Text('Filters'),
+                        )
+                      : FilledButton.icon(
+                          onPressed: () => _openFilters(provider),
+                          icon: const Icon(Icons.tune_rounded, size: 18),
+                          label: Text('Filters · $activeCount'),
+                        ),
+                ),
+              ],
             ),
           ),
         ),
       ),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          // Filter Chips Header Bar
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            color: isDark ? AppTheme.darkBg : Theme.of(context).scaffoldBackgroundColor,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  // 1. Type Filter Dropdown
-                  PopupMenuButton<TypeFilterType>(
-                    initialValue: _typeFilter,
-                    onSelected: (val) => setState(() => _typeFilter = val),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: _FilterPill(
-                      label: _getTypeFilterLabel(_typeFilter),
-                      icon: Icons.filter_list_rounded,
-                      isSelected: _typeFilter != TypeFilterType.all,
-                      hasDropdownArrow: true,
-                    ),
-                    itemBuilder: (ctx) => [
-                      const PopupMenuItem(value: TypeFilterType.all, child: Text('All Types')),
-                      const PopupMenuItem(value: TypeFilterType.moneyIn, child: Text('Money In (+)')),
-                      const PopupMenuItem(value: TypeFilterType.moneyOut, child: Text('Money Out (-)')),
-                      const PopupMenuItem(value: TypeFilterType.update, child: Text('Balance updates (MB investment)')),
-                    ],
-                  ),
-                  const SizedBox(width: 8),
-
-                  // 2. Account Filter Dropdown
-                  PopupMenuButton<String>(
-                    initialValue: _selectedAccount,
-                    onSelected: (val) => setState(() => _selectedAccount = val),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: _FilterPill(
-                      label: _selectedAccount,
-                      icon: Icons.account_balance_wallet_outlined,
-                      leading: _selectedAccount == 'All Accounts' ? null : AccountIcon(_selectedAccount, size: 16),
-                      isSelected: _selectedAccount != 'All Accounts',
-                      hasDropdownArrow: true,
-                    ),
-                    itemBuilder: (ctx) => _accountOptions.map((acc) {
-                      return PopupMenuItem(
-                        value: acc,
-                        child: Row(
-                          children: [
-                            if (acc == 'All Accounts')
-                              const Icon(Icons.account_balance_wallet_outlined, size: 20)
-                            else
-                              AccountIcon(acc, size: 20),
-                            const SizedBox(width: 10),
-                            Text(acc),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(width: 8),
-
-                  // 3. Date Filter: one pill opening the presets sheet
-                  GestureDetector(
-                    onTap: _openDateFilterSheet,
-                    child: _FilterPill(
-                      label: _dateFilterLabel,
-                      icon: Icons.calendar_month_rounded,
-                      isSelected: _hasDateFilter,
-                      hasDropdownArrow: true,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          _SummaryCard(
+            summary: HistorySummary.of(filtered),
+            categoryNames: _categoryNames(provider),
           ),
-
-          // Count bar & Reset filters button
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+            padding: const EdgeInsets.fromLTRB(4, 12, 4, 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'Showing ${filtered.length} of ${provider.transactions.length} records',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
-                  ),
+                  style: TextStyle(fontSize: 12.5, color: muted),
                 ),
-                if (_typeFilter != TypeFilterType.all ||
-                    _selectedAccount != 'All Accounts' ||
-                    _hasDateFilter ||
-                    _searchController.text.isNotEmpty)
+                if (activeCount > 0 || _searchController.text.isNotEmpty)
                   GestureDetector(
                     onTap: () {
-                      setState(() {
-                        _searchController.clear();
-                        _typeFilter = TypeFilterType.all;
-                        _selectedAccount = 'All Accounts';
-                        _datePreset = DatePreset.allTime;
-                        _customDateRange = null;
-                      });
+                      _searchController.clear();
+                      _setFilter(const HistoryFilter());
                     },
                     child: Text(
                       'Reset Filters',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
-                      ),
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
                     ),
                   ),
               ],
             ),
           ),
-          const Divider(height: 1),
-
-          // Main Transaction List View
-          Expanded(
-            child: filtered.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.search_off_rounded,
-                            size: 48,
-                            color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'No matching transactions',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Try adjusting your search or date filter.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filtered.length,
-                    separatorBuilder: (ctx, i) => const SizedBox(height: 10),
-                    itemBuilder: (ctx, i) {
-                      final t = filtered[i];
-                      return DeletableTransactionTile(key: ValueKey(t.id), transaction: t);
-                    },
+          if (filtered.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                children: [
+                  Icon(Icons.search_off_rounded, size: 48, color: muted),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'No matching transactions',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
-          ),
+                  const SizedBox(height: 4),
+                  Text('Try adjusting your search or filters.', style: TextStyle(fontSize: 13, color: muted)),
+                ],
+              ),
+            )
+          else
+            for (final t in filtered) ...[
+              DeletableTransactionTile(key: ValueKey(t.id), transaction: t),
+              const SizedBox(height: 10),
+            ],
         ],
       ),
     );
   }
-
-  String _getTypeFilterLabel(TypeFilterType type) {
-    switch (type) {
-      case TypeFilterType.all: return 'All Types';
-      case TypeFilterType.moneyIn: return 'Money In';
-      case TypeFilterType.moneyOut: return 'Money Out';
-      case TypeFilterType.update: return 'Updates';
-    }
-  }
 }
 
-class _FilterPill extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  /// Shown instead of [icon] when given.
-  final Widget? leading;
-  final bool isSelected;
-  final bool hasDropdownArrow;
+/// In · Out · Net for the shown records; tap to see each by Category.
+class _SummaryCard extends StatefulWidget {
+  final HistorySummary summary;
+  final Map<String, String> categoryNames;
 
-  const _FilterPill({
-    required this.label,
-    this.icon,
-    this.leading,
-    this.isSelected = false,
-    this.hasDropdownArrow = false,
-  });
+  const _SummaryCard({required this.summary, required this.categoryNames});
+
+  @override
+  State<_SummaryCard> createState() => _SummaryCardState();
+}
+
+class _SummaryCardState extends State<_SummaryCard> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final muted = isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted;
+    final inColor = isDark ? AppTheme.darkMoneyIn : AppTheme.lightMoneyIn;
+    final outColor = isDark ? AppTheme.darkMoneyOut : AppTheme.lightMoneyOut;
+    final summary = widget.summary;
 
-    final backgroundColor = isSelected
-        ? theme.colorScheme.primary
-        : (isDark ? AppTheme.darkSurface : AppTheme.lightSurface);
-
-    final foregroundColor = isSelected
-        ? (isDark ? const Color(0xFF0D0B14) : Colors.white)
-        : theme.textTheme.bodyMedium?.color;
-
-    final borderColor = isSelected
-        ? theme.colorScheme.primary
-        : (isDark ? AppTheme.darkBorder : AppTheme.lightBorder);
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      height: 38,
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: borderColor, width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (leading != null || icon != null) ...[
-            leading ?? Icon(icon, size: 16, color: foregroundColor),
-            const SizedBox(width: 6),
-          ],
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-              color: foregroundColor,
+    Widget total(String label, String value, Color? color) {
+      return Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(fontSize: 11.5, color: muted)),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color)),
             ),
-          ),
-          if (hasDropdownArrow) ...[
-            const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down_rounded, size: 18, color: foregroundColor),
           ],
+        ),
+      );
+    }
+
+    Widget breakdown(String title, Map<String?, double> byCategory, Color color) {
+      final rows = byCategory.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: muted)),
+          const SizedBox(height: 6),
+          if (rows.isEmpty) Text('Nothing', style: TextStyle(fontSize: 13, color: muted)),
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.categoryNames[row.key] ?? 'Uncategorized',
+                      style: TextStyle(fontSize: 13.5, fontStyle: row.key == null ? FontStyle.italic : null),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(formatVnd(row.value), style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: color)),
+                ],
+              ),
+            ),
         ],
+      );
+    }
+
+    return Material(
+      color: isDark ? AppTheme.darkSurface : AppTheme.lightPrimaryContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: isDark ? AppTheme.darkBorder : AppTheme.lightPrimary.withValues(alpha: 0.15)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => setState(() => _expanded = !_expanded),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  total('Money In', '+${formatVnd(summary.moneyIn)}', inColor),
+                  total('Money Out', '−${formatVnd(summary.moneyOut)}', outColor),
+                  total('Net', formatVnd(summary.net), null),
+                  Icon(_expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: muted),
+                ],
+              ),
+              if (_expanded) ...[
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                breakdown('MONEY OUT BY CATEGORY', summary.moneyOutByCategory, outColor),
+                const SizedBox(height: 12),
+                breakdown('MONEY IN BY CATEGORY', summary.moneyInByCategory, inColor),
+              ] else ...[
+                const SizedBox(height: 6),
+                Text('Tap for totals by category', style: TextStyle(fontSize: 11.5, color: muted)),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
 }
-
