@@ -45,7 +45,7 @@ void main() {
 
     await tester.drag(dinnerTile, const Offset(-600, 0));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Delete'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
     await tester.pumpAndSettle();
 
     expect(dinnerTile, findsNothing);

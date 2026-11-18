@@ -40,6 +40,7 @@ class AppTheme {
       colorScheme: const ColorScheme.light(
         primary: lightPrimary,
         primaryContainer: lightPrimaryContainer,
+        onPrimaryContainer: lightPrimary,
         secondary: lightSecondary,
         surface: lightSurface,
         onSurface: lightText,
@@ -127,6 +128,7 @@ class AppTheme {
       colorScheme: const ColorScheme.dark(
         primary: darkPrimary,
         primaryContainer: darkPrimaryContainer,
+        onPrimaryContainer: darkPrimary,
         secondary: darkSecondary,
         surface: darkSurface,
         onSurface: darkText,

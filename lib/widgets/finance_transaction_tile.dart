@@ -76,34 +76,34 @@ class FinanceTransactionTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // The amount shares the account's line so the note and meta
+                // line get the tile's full width on narrow phones.
                 Row(
                   children: [
                     AccountIcon(transaction.account, size: 16),
                     const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        transaction.account,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.1,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      transaction.account,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.1,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: itemColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        typeLabel,
-                        style: TextStyle(
-                          color: itemColor,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '$sign$formattedAmount',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: itemColor,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -122,27 +122,37 @@ class FinanceTransactionTile extends StatelessWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 4),
-                Text(
-                  categoryName == null ? dateStr : '$categoryName · $dateStr',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
-                  ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: itemColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        typeLabel,
+                        style: TextStyle(
+                          color: itemColor,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      categoryName == null ? dateStr : '$categoryName · $dateStr',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              '$sign$formattedAmount',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-                color: itemColor,
-              ),
             ),
           ),
         ],

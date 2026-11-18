@@ -68,7 +68,7 @@ class _CategoryNameDialogState extends State<CategoryNameDialog> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        ElevatedButton(onPressed: _save, child: const Text('Save')),
+        FilledButton(onPressed: _save, child: const Text('Save')),
       ],
     );
   }

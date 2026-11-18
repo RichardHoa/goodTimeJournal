@@ -29,6 +29,13 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     super.dispose();
   }
 
+  static final ButtonStyle _filterButtonStyle = ButtonStyle(
+    minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+    padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 14)),
+    textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+    shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+  );
+
   void _setFilter(HistoryFilter filter) {
     setState(() => _filter = filter);
     _lastFilter = filter;
@@ -108,15 +115,19 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
+                // The theme gives buttons infinite min width; in a Row that
+                // fails layout and the button never draws.
                 SizedBox(
                   height: 48,
                   child: activeCount == 0
                       ? OutlinedButton.icon(
+                          style: _filterButtonStyle,
                           onPressed: () => _openFilters(provider),
                           icon: const Icon(Icons.tune_rounded, size: 18),
                           label: const Text('Filters'),
                         )
                       : FilledButton.icon(
+                          style: _filterButtonStyle,
                           onPressed: () => _openFilters(provider),
                           icon: const Icon(Icons.tune_rounded, size: 18),
                           label: Text('Filters · $activeCount'),
@@ -208,18 +219,22 @@ class _SummaryCardState extends State<_SummaryCard> {
     final summary = widget.summary;
 
     Widget total(String label, String value, Color? color) {
+      // The end padding keeps large shrunk totals from running together.
       return Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: TextStyle(fontSize: 11.5, color: muted)),
-            const SizedBox(height: 2),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color)),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsetsDirectional.only(end: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 11.5, color: muted)),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color)),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -244,6 +259,7 @@ class _SummaryCardState extends State<_SummaryCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 12),
                   Text(formatVnd(row.value), style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: color)),
                 ],
               ),

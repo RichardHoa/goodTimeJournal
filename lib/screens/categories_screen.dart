@@ -117,6 +117,7 @@ class _CategoryList extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 12),
                 Text(usedLabel, style: TextStyle(fontSize: 12.5, color: muted)),
               ],
             ),

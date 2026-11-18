@@ -4,6 +4,7 @@ import 'package:mix_app/models/finance_model.dart';
 import 'package:mix_app/providers/finance_provider.dart';
 import 'package:mix_app/screens/history_filters_screen.dart';
 import 'package:mix_app/screens/transaction_history_screen.dart';
+import 'package:mix_app/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,6 +23,26 @@ void main() {
       await tester.pumpAndSettle();
     }
   }
+
+  testWidgets('Filters button lays out and opens under the real app theme', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final finance = FinanceProvider();
+    await tester.runAsync(() => finance.ready);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: finance,
+        child: MaterialApp(theme: AppTheme.lightTheme, home: const TransactionHistoryScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Filters'), findsOneWidget);
+    await tester.tap(find.text('Filters'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HistoryFiltersScreen), findsOneWidget);
+  });
 
   testWidgets('Filters page: This month applies with "Show 1 record", and Reset Filters returns to all', (tester) async {
     SharedPreferences.setMockInitialValues({});

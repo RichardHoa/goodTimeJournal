@@ -19,8 +19,8 @@ Future<bool> confirmDestructive(
           onPressed: () => Navigator.of(ctx).pop(false),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
+        FilledButton(
+          style: FilledButton.styleFrom(
             backgroundColor: Theme.of(ctx).colorScheme.error,
             foregroundColor: Colors.white,
           ),

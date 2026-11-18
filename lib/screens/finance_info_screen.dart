@@ -104,12 +104,14 @@ class FinanceInfoScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Text(
-                        'Money Left (Available Spending)',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: theme.colorScheme.secondary,
+                      Expanded(
+                        child: Text(
+                          'Money Left (Available Spending)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.secondary,
+                          ),
                         ),
                       ),
                     ],
@@ -511,26 +513,34 @@ class FinanceInfoScreen extends StatelessWidget {
               child: AccountIcon(name, size: 20),
             ),
             const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-              ),
+            // The name keeps its natural width; a large balance shrinks
+            // instead of wrapping the name mid-word.
+            Text(
+              name,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _formatVnd(value),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.edit_outlined,
-                  size: 16,
-                  color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                ),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        _formatVnd(value),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.edit_outlined,
+                    size: 16,
+                    color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -562,35 +572,44 @@ class FinanceInfoScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(label, style: textStyle),
-                  if (isEditable) ...[
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.edit_outlined,
-                      size: 15,
-                      color: theme.colorScheme.primary,
-                    ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(child: Text(label, style: textStyle)),
+                    if (isEditable) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.edit_outlined,
+                        size: 15,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ],
                   ],
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: isDark ? AppTheme.darkTextMuted : AppTheme.lightTextMuted,
+                  ),
+                ),
+              ],
+            ),
           ),
-          Text(
-            _formatVnd(amount),
-            style: textStyle,
+          const SizedBox(width: 12),
+          // Shrinks a large amount rather than squeezing the label.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                _formatVnd(amount),
+                style: textStyle,
+              ),
+            ),
           ),
         ],
       ),
@@ -720,25 +739,29 @@ class _EditAccountDialogState extends State<_EditAccountDialog> {
               onSubmitted: (_) => _handleSave(),
             ),
             const SizedBox(height: 24),
+            // Split the width: fixed button sizes overflow narrow phones.
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(90, 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
                   ),
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
                 ),
                 const SizedBox(width: 12),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(100, 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    onPressed: _handleSave,
+                    child: const Text('Save'),
                   ),
-                  onPressed: _handleSave,
-                  child: const Text('Save'),
                 ),
               ],
             ),
